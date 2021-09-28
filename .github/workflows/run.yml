@@ -1,0 +1,243 @@
+on:
+  push:
+    paths:
+      - '.github/workflows/run.yml'
+  schedule:
+    - cron: "0 18 */1 * *"
+
+name: sync
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    env:
+      TZ: Europe/Busingen
+    steps:
+      
+      - name: Checkout
+        uses: actions/checkout@v2.3.4
+
+      - name: Set Variables
+        run: |
+          echo "VERSION=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
+
+      - name: Sync
+        run: |
+          # Clean Repository
+          rm -rf *
+          export GCRS="git clone --recurse-submodules"
+          # GFW Projects
+          ${GCRS} https://github.com/v2fly/v2ray-core v2ray-core
+          ${GCRS} https://github.com/XTLS/Xray-core Xray-core
+          ${GCRS} https://github.com/trojan-gfw/trojan trojan-gfw
+          ${GCRS} https://github.com/p4gefau1t/trojan-go trojan-go
+          ${GCRS} https://github.com/p4gefau1t/trojan-r trojan-r
+          ${GCRS} https://github.com/lazytiger/trojan-rs trojan-rs
+          ${GCRS} https://github.com/cty123/TrojanRust trojanrust
+          ${GCRS} https://github.com/shadowsocks/shadowsocks-libev shadowsocks-libev
+          ${GCRS} https://github.com/shadowsocks/go-shadowsocks2 go-shadowsocks2
+          ${GCRS} https://github.com/shadowsocks/shadowsocks-rust shadowsocks-rust
+          ${GCRS} https://github.com/klzgrad/naiveproxy naiveproxy
+          ${GCRS} https://github.com/txthinking/brook brook
+          ${GCRS} https://github.com/Dreamacro/clash clash
+          # GFW Client Projects
+          ${GCRS} https://github.com/shadowsocks/shadowsocks-windows shadowsocks-windows
+          ${GCRS} https://github.com/shadowsocks/shadowsocks-android shadowsocks-android
+          ${GCRS} https://github.com/shadowsocks/ShadowsocksX-NG shadowsocksx-ng
+          ${GCRS} https://github.com/2dust/v2rayN v2rayn
+          ${GCRS} https://github.com/2dust/v2rayNG v2rayng
+          ${GCRS} https://github.com/yanue/V2rayU -b master v2rayu
+          ${GCRS} https://github.com/v2rayA/v2rayA v2raya
+          ${GCRS} https://github.com/Qv2ray/Qv2ray qv2ray-qv2ray
+          ${GCRS} https://github.com/Shadowsocks-NET/Qv2ray ssnet-qv2ray
+          ${GCRS} https://github.com/yichengchen/clashX clashx
+          ${GCRS} https://github.com/Fndroid/clash_for_windows_pkg clash-cfw
+          ${GCRS} https://github.com/Kr328/ClashForAndroid clash-cfa
+          ${GCRS} https://github.com/ClashDotNetFramework/ClashDotNetFramework -b main clash-dotnet
+          ${GCRS} https://github.com/trojan-gfw/igniter igniter
+          ${GCRS} https://github.com/trojan-gfw/igniter-go-libs igniter/app/src/libs/go-libs
+          ${GCRS} https://github.com/SagerNet/SagerNet sagernet
+          ${GCRS} https://github.com/XTLS/AnXray anxray
+          # Network Tools
+          ${GCRS} https://github.com/klzgrad/forwardproxy forwardproxy
+          ${GCRS} https://github.com/wangyu-/udp2raw udp2raw
+          ${GCRS} https://github.com/wangyu-/udp2raw-multiplatform udp2raw-multi
+          ${GCRS} https://github.com/m13253/dns-over-https dns-over-https
+          ${GCRS} https://github.com/nadoo/glider glider
+          ${GCRS} https://github.com/ginuerzh/gost gost
+          ${GCRS} https://github.com/HyNetwork/hysteria hysteria
+          ${GCRS} https://github.com/esrrhs/pingtunnel pingtunnel
+          ${GCRS} https://github.com/AdguardTeam/dnsproxy dnsproxy
+          ${GCRS} https://github.com/googleforgames/quilkin quilkin
+          # Git Commit
+          git config --local user.name "github-action[bot]"
+          git config --local user.email "${{ secrets.EMAIL }}"
+          git add .
+          git commit -am "Update On $(date)"
+
+      - name: Push Changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+
+      - name: Backup Binaries
+        run: |
+          # shadowsocks-windows
+          mkdir -p shadowsocks-windows/Clients
+          pushd shadowsocks-windows/Clients || exit 1
+          wget -qO- https://api.github.com/repos/shadowsocks/shadowsocks-windows/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # shadowsocks-android
+          mkdir -p shadowsocks-android/Clients
+          pushd shadowsocks-android/Clients || exit 1
+          wget -qO- https://api.github.com/repos/shadowsocks/shadowsocks-android/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # shadowsocksx-ng
+          mkdir -p shadowsocksx-ng/Clients
+          pushd shadowsocksx-ng/Clients || exit 1
+          wget -qO- https://api.github.com/repos/shadowsocks/ShadowsocksX-NG/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # v2rayn
+          mkdir -p v2rayn/Clients
+          pushd v2rayn/Clients || exit 1
+          wget -qO- https://api.github.com/repos/2dust/v2rayN/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # v2rayng
+          mkdir -p v2rayng/Clients
+          pushd v2rayng/Clients || exit 1
+          wget -qO- https://api.github.com/repos/2dust/v2rayNG/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # v2rayu
+          mkdir -p v2rayu/Clients
+          pushd v2rayu/Clients || exit 1
+          wget -qO- https://api.github.com/repos/yanue/V2rayU/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # v2raya
+          mkdir -p v2raya/Clients
+          pushd v2raya/Clients || exit 1
+          wget -qO- https://api.github.com/repos/v2rayA/v2rayA/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 
+          # qv2ray-qv2ray
+          mkdir -p qv2ray-qv2ray/Clients
+          pushd qv2ray-qv2ray/Clients || exit 1
+          wget -qO- https://api.github.com/repos/Qv2ray/Qv2ray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # ssnet-qv2ray
+          mkdir -p ssnet-qv2ray/Clients
+          pushd ssnet-qv2ray/Clients || exit 1
+          wget -qO- https://api.github.com/repos/Shadowsocks-NET/Qv2ray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # clashx
+          mkdir -p clashx/Clients
+          pushd clashx/Clients || exit 1
+          wget -qO- https://api.github.com/repos/yichengchen/clashX/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # clash-cfw
+          mkdir -p clash-cfw/Clients
+          pushd clash-cfw/Clients || exit 1
+          wget -qO- https://api.github.com/repos/Fndroid/clash_for_windows_pkg/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # clash-cfa
+          mkdir -p clash-cfa/Clients
+          pushd clash-cfa/Clients || exit 1
+          wget -qO- https://api.github.com/repos/Kr328/ClashForAndroid/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # clash-dotnet
+          mkdir -p clash-dotnet/Clients
+          pushd clash-dotnet/Clients || exit 1
+          wget -qO- https://api.github.com/repos/ClashDotNetFramework/ClashDotNetFramework/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # igniter
+          mkdir -p igniter/Clients
+          pushd igniter/Clients || exit 1
+          wget -qO- https://api.github.com/repos/trojan-gfw/igniter/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # sagernet
+          mkdir -p sagernet/Clients
+          pushd sagernet/Clients || exit 1
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # anxray
+          mkdir -p anxray/Clients
+          pushd anxray/Clients || exit 1
+          wget -qO- https://api.github.com/repos/XTLS/AnXray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # udp2raw
+          mkdir -p udp2raw/Clients
+          pushd udp2raw/Clients || exit 1
+          wget -qO- https://api.github.com/repos/wangyu-/udp2raw/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # udp2raw-multi
+          mkdir -p udp2raw-multi/Clients
+          pushd udp2raw-multi/Clients || exit 1
+          wget -qO- https://api.github.com/repos/wangyu-/udp2raw-multiplatform/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # brook
+          mkdir -p brook/Clients
+          pushd brook/Clients || exit 1
+          wget -qO- https://api.github.com/repos/txthinking/brook/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+          # clash premium
+          mkdir -p clash/Clients
+          pushd clash/Clients || exit 1
+          wget -qO- https://api.github.com/repos/Dreamacro/clash/releases/tags/premium | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          popd || exit 1
+
+      - name: Compress to packages
+        run: |
+          mkdir -p release
+          export Z9R="zip -9 -r -qq"
+          # Compressing
+          ${Z9R} shadowsocks-windows.zip shadowsocks-windows
+          ${Z9R} shadowsocks-android.zip shadowsocks-android
+          ${Z9R} shadowsocksx-ng.zip shadowsocksx-ng
+          ${Z9R} v2rayn.zip v2rayn
+          ${Z9R} v2rayng.zip v2rayng
+          ${Z9R} v2rayu.zip v2rayu
+          ${Z9R} v2raya.zip v2raya
+          ${Z9R} qv2ray-qv2ray.zip qv2ray-qv2ray
+          ${Z9R} ssnet-qv2ray.zip ssnet-qv2ray
+          ${Z9R} clashx.zip clashx
+          ${Z9R} clash-cfw.zip clash-cfw
+          ${Z9R} clash-cfa.zip clash-cfa
+          ${Z9R} clash-dotnet.zip clash-dotnet
+          ${Z9R} igniter.zip igniter
+          ${Z9R} sagernet.zip sagernet
+          ${Z9R} anxray.zip anxray
+          ${Z9R} udp2raw.zip udp2raw
+          ${Z9R} udp2raw-multi.zip udp2raw-multi
+          ${Z9R} brook.zip brook
+          ${Z9R} clash.zip clash
+          ${Z9R} v2ray-core.zip v2ray-core
+          ${Z9R} Xray-core.zip Xray-core
+          ${Z9R} trojan-gfw.zip trojan-gfw
+          ${Z9R} trojan-go.zip trojan-go
+          ${Z9R} trojan-r.zip trojan-r
+          ${Z9R} trojan-rs.zip trojan-rs
+          ${Z9R} trojanrust.zip trojanrust
+          ${Z9R} shadowsocks-libev.zip shadowsocks-libev
+          ${Z9R} go-shadowsocks2.zip go-shadowsocks2
+          ${Z9R} shadowsocks-rust.zip shadowsocks-rust
+          ${Z9R} naiveproxy.zip naiveproxy
+          ${Z9R} forwardproxy.zip forwardproxy
+          ${Z9R} dns-over-https.zip dns-over-https
+          ${Z9R} glider.zip glider
+          ${Z9R} gost.zip gost
+          ${Z9R} hysteria.zip hysteria
+          ${Z9R} pingtunnel.zip pingtunnel
+          ${Z9R} dnsproxy.zip dnsproxy
+          ${Z9R} quilkin.zip quilkin
+          # Move to Release
+          mv *.zip release
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          name: ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+          files: |
+            ./release/*
