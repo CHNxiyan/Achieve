@@ -8,7 +8,7 @@ on:
 name: sync
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       TZ: Europe/Busingen
     steps:
@@ -22,12 +22,14 @@ jobs:
 
       - name: Sync
         run: |
+          # Disappeared Projects
+          mv anxray .github
           # Clean Repository
           rm -rf *
           export GCRS="git clone --recurse-submodules"
           # GFW Projects
           ${GCRS} https://github.com/v2fly/v2ray-core v2ray-core
-          ${GCRS} https://github.com/XTLS/Xray-core Xray-core
+          ${GCRS} https://github.com/XTLS/Xray-core xray-core
           ${GCRS} https://github.com/trojan-gfw/trojan trojan-gfw
           ${GCRS} https://github.com/p4gefau1t/trojan-go trojan-go
           ${GCRS} https://github.com/p4gefau1t/trojan-r trojan-r
@@ -39,6 +41,11 @@ jobs:
           ${GCRS} https://github.com/klzgrad/naiveproxy naiveproxy
           ${GCRS} https://github.com/txthinking/brook brook
           ${GCRS} https://github.com/Dreamacro/clash clash
+          ${GCRS} -b Alpha https://github.com/MetaCubeX/Clash.Meta clash-meta
+          ${GCRS} https://github.com/ihciah/shadow-tls shadow-tls
+          ${GCRS} https://github.com/SagerNet/sing-box sing-box
+          ${GCRS} https://github.com/enfein/mieru mieru
+          ${GCRS} https://github.com/Leask/socratex socratex
           # GFW Client Projects
           ${GCRS} https://github.com/shadowsocks/shadowsocks-windows shadowsocks-windows
           ${GCRS} https://github.com/shadowsocks/shadowsocks-android shadowsocks-android
@@ -51,12 +58,24 @@ jobs:
           ${GCRS} https://github.com/Shadowsocks-NET/Qv2ray ssnet-qv2ray
           ${GCRS} https://github.com/yichengchen/clashX clashx
           ${GCRS} https://github.com/Fndroid/clash_for_windows_pkg clash-cfw
+          ${GCRS} https://github.com/zzzgydi/clash-verge clash-verge
+          ${GCRS} https://github.com/2dust/clashN clashn
           ${GCRS} https://github.com/Kr328/ClashForAndroid clash-cfa
-          ${GCRS} https://github.com/ClashDotNetFramework/ClashDotNetFramework -b main clash-dotnet
           ${GCRS} https://github.com/trojan-gfw/igniter igniter
-          ${GCRS} https://github.com/trojan-gfw/igniter-go-libs igniter/app/src/libs/go-libs
+          ${GCRS} https://github.com/trojan-gfw/igniter-go-libs igniter/app/src/libs/go-libs && rm -rfv igniter/app/src/libs/go-libs/.git
           ${GCRS} https://github.com/SagerNet/SagerNet sagernet
-          ${GCRS} https://github.com/XTLS/AnXray anxray
+          ${GCRS} https://github.com/MatsuriDayo/Matsuri matsuri
+          ${GCRS} https://github.com/xxf098/shadowsocksr-v2ray-trojan-android svt-android
+          ${GCRS} https://github.com/netchx/netch netch
+          ${GCRS} https://github.com/MatsuriDayo/nekoray nekoray
+          ${GCRS} https://github.com/MatsuriDayo/NekoBoxForAndroid nekobox-android
+          # Openwrt Projects
+          ${GCRS} https://github.com/coolsnowwolf/lede lede
+          ${GCRS} https://github.com/xiaorouji/openwrt-passwall openwrt-passwall
+          ${GCRS} https://github.com/xiaorouji/openwrt-passwall2 openwrt-passwall2
+          ${GCRS} https://github.com/fw876/helloworld helloworld
+          ${GCRS} https://github.com/kenzok8/openwrt-packages openwrt-packages
+          ${GCRS} https://github.com/kenzok8/small small
           # Network Tools
           ${GCRS} https://github.com/klzgrad/forwardproxy forwardproxy
           ${GCRS} https://github.com/wangyu-/udp2raw udp2raw
@@ -66,8 +85,31 @@ jobs:
           ${GCRS} https://github.com/ginuerzh/gost gost
           ${GCRS} https://github.com/HyNetwork/hysteria hysteria
           ${GCRS} https://github.com/esrrhs/pingtunnel pingtunnel
-          ${GCRS} https://github.com/AdguardTeam/dnsproxy dnsproxy
-          ${GCRS} https://github.com/googleforgames/quilkin quilkin
+          ${GCRS} https://github.com/Ehco1996/ehco echo
+          ${GCRS} https://github.com/Loyalsoldier/v2ray-rules-dat v2ray-rules-dat
+          ${GCRS} https://github.com/Loyalsoldier/geoip geoip
+          ${GCRS} https://github.com/17mon/china_ip_list china-ip
+          ${GCRS} https://github.com/ip-scanner/cloudflare ip-scanner
+          ${GCRS} https://github.com/EAimTY/tuic tuic
+          ## Media Tools
+          ${GCRS} https://github.com/nilaoda/BBDown bbdown
+          ${GCRS} https://github.com/ytdl-org/youtube-dl youtube-dl
+          ${GCRS} https://github.com/yt-dlp/yt-dlp yt-dlp
+          ${GCRS} https://github.com/the1812/Bilibili-Evolved bb-evolved
+          ${GCRS} https://github.com/rachpt/lanzou-gui lanzou-gui
+          ${GCRS} https://github.com/liupan1890/aliyunpan aliyunpan
+          ${GCRS} https://git.unlock-music.dev/um/web unlock-music
+          ${GCRS} https://github.com/filebrowser/filebrowser filebrowser
+          ${GCRS} https://github.com/nilaoda/N_m3u8DL-CLI m3u8-cli
+          ${GCRS} https://github.com/qier222/YesPlayMusic yesplaymusic
+          ${GCRS} https://github.com/Codennnn/vue-color-avatar vue-color-avatar
+          ${GCRS} https://github.com/DIGITALCRIMINALS/OnlyFans onlyfans
+          # Clean Git Info
+          rm -rf */.git
+          # Update logs
+          echo "Update On $(date)" >> .github/update.log
+          # Recover disappeared Projects
+          mv .github/anxray .
           # Git Commit
           git config --local user.name "github-action[bot]"
           git config --local user.email "${{ secrets.EMAIL }}"
@@ -82,162 +124,346 @@ jobs:
 
       - name: Backup Binaries
         run: |
+          sudo apt install -y aria2
           # shadowsocks-windows
           mkdir -p shadowsocks-windows/Clients
           pushd shadowsocks-windows/Clients || exit 1
-          wget -qO- https://api.github.com/repos/shadowsocks/shadowsocks-windows/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/shadowsocks/shadowsocks-windows/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # shadowsocks-android
           mkdir -p shadowsocks-android/Clients
           pushd shadowsocks-android/Clients || exit 1
-          wget -qO- https://api.github.com/repos/shadowsocks/shadowsocks-android/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/shadowsocks/shadowsocks-android/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # shadowsocksx-ng
           mkdir -p shadowsocksx-ng/Clients
           pushd shadowsocksx-ng/Clients || exit 1
-          wget -qO- https://api.github.com/repos/shadowsocks/ShadowsocksX-NG/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/shadowsocks/ShadowsocksX-NG/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # v2rayn
           mkdir -p v2rayn/Clients
           pushd v2rayn/Clients || exit 1
-          wget -qO- https://api.github.com/repos/2dust/v2rayN/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/2dust/v2rayN/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # v2rayng
           mkdir -p v2rayng/Clients
           pushd v2rayng/Clients || exit 1
-          wget -qO- https://api.github.com/repos/2dust/v2rayNG/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/2dust/v2rayNG/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # v2rayu
           mkdir -p v2rayu/Clients
           pushd v2rayu/Clients || exit 1
-          wget -qO- https://api.github.com/repos/yanue/V2rayU/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/yanue/V2rayU/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # v2raya
           mkdir -p v2raya/Clients
           pushd v2raya/Clients || exit 1
-          wget -qO- https://api.github.com/repos/v2rayA/v2rayA/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/v2rayA/v2rayA/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 
           # qv2ray-qv2ray
           mkdir -p qv2ray-qv2ray/Clients
           pushd qv2ray-qv2ray/Clients || exit 1
-          wget -qO- https://api.github.com/repos/Qv2ray/Qv2ray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/Qv2ray/Qv2ray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # qv2ray-qv2ray plugins
+          mkdir -p qv2ray-qv2ray/Clients/plugins
+          pushd qv2ray-qv2ray/Clients/plugins || exit 1
+          wget -qO- https://api.github.com/repos/Qv2ray/QvPlugin-Trojan/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/Qv2ray/QvPlugin-Trojan-Go/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/Qv2ray/QvPlugin-SSR/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/Qv2ray/QvPlugin-SS/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/Qv2ray/QvPlugin-Command/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/Qv2ray/QvPlugin-NaiveProxy/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # ssnet-qv2ray
           mkdir -p ssnet-qv2ray/Clients
           pushd ssnet-qv2ray/Clients || exit 1
-          wget -qO- https://api.github.com/repos/Shadowsocks-NET/Qv2ray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/Shadowsocks-NET/Qv2ray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # ssnet-qv2ray plugins
+          mkdir -p ssnet-qv2ray/Clients/plugins
+          pushd ssnet-qv2ray/Clients/plugins || exit 1
+          wget -qO- https://api.github.com/repos/bolucat/peace/releases/tags/qvplugin | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # clashx
           mkdir -p clashx/Clients
           pushd clashx/Clients || exit 1
-          wget -qO- https://api.github.com/repos/yichengchen/clashX/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/yichengchen/clashX/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # clash-cfw
           mkdir -p clash-cfw/Clients
           pushd clash-cfw/Clients || exit 1
-          wget -qO- https://api.github.com/repos/Fndroid/clash_for_windows_pkg/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/Fndroid/clash_for_windows_pkg/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # clash-cfa
           mkdir -p clash-cfa/Clients
           pushd clash-cfa/Clients || exit 1
-          wget -qO- https://api.github.com/repos/Kr328/ClashForAndroid/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/Kr328/ClashForAndroid/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
-          # clash-dotnet
-          mkdir -p clash-dotnet/Clients
-          pushd clash-dotnet/Clients || exit 1
-          wget -qO- https://api.github.com/repos/ClashDotNetFramework/ClashDotNetFramework/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          # clash-verge
+          mkdir -p clash-verge/Clients
+          pushd clash-verge/Clients || exit 1
+          wget -qO- https://api.github.com/repos/zzzgydi/clash-verge/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # clashn
+          mkdir -p clashn/Clients
+          pushd clashn/Clients || exit 1
+          wget -qO- https://api.github.com/repos/2dust/clashN/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # igniter
           mkdir -p igniter/Clients
           pushd igniter/Clients || exit 1
-          wget -qO- https://api.github.com/repos/trojan-gfw/igniter/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/trojan-gfw/igniter/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # sagernet
           mkdir -p sagernet/Clients
           pushd sagernet/Clients || exit 1
-          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
-          # anxray
-          mkdir -p anxray/Clients
-          pushd anxray/Clients || exit 1
-          wget -qO- https://api.github.com/repos/XTLS/AnXray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          # sagernet plugins
+          mkdir -p sagernet/Clients/plugins
+          pushd sagernet/Clients/plugins || exit 1
+          export Xtls_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "xtls-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Wireguard_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "wireguard-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Naive_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "naive-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Trojan_Go_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "trojan-go-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Hysteria_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "hysteria-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Brook_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "brook-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Relayboton_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "relaybaton-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Pingtunnel_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "pingtunnel-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Mieru_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "mieru-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          export Tuic_Plugin=$(wget -qO- https://api.github.com/repos/SagerNet/SagerNet/tags | grep 'name' | grep "tuic-plugin" | cut -d\" -f4 | sort -Vr | head -1)
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Xtls_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Wireguard_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Naive_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Trojan_Go_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Hysteria_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Brook_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Relayboton_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Pingtunnel_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Mieru_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          wget -qO- https://api.github.com/repos/SagerNet/SagerNet/releases/tags/${Tuic_Plugin} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # matsuri
+          mkdir -p matsuri/Clients
+          pushd matsuri/Clients || exit 1
+          wget -qO- https://api.github.com/repos/MatsuriDayo/Matsuri/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # svt-android
+          mkdir -p svt-android/Clients
+          pushd svt-android/Clients || exit 1
+          wget -qO- https://api.github.com/repos/xxf098/shadowsocksr-v2ray-trojan-android/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # nekoray
+          mkdir -p nekoray/Clients
+          pushd nekoray/Clients || exit 1
+          wget -qO- https://api.github.com/repos/MatsuriDayo/nekoray/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # nekobox-android
+          mkdir -p nekobox-android/Clients
+          pushd nekobox-android/Clients || exit 1
+          wget -qO- https://api.github.com/repos/MatsuriDayo/NekoBoxForAndroid/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # v2ray-rules-dat
+          mkdir -p v2ray-rules-dat/Clients
+          pushd v2ray-rules-dat/Clients || exit 1
+          wget -qO- https://api.github.com/repos/Loyalsoldier/v2ray-rules-dat/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # geoip
+          mkdir -p geoip/Clients
+          pushd geoip/Clients || exit 1
+          wget -qO- https://api.github.com/repos/Loyalsoldier/geoip/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # udp2raw
           mkdir -p udp2raw/Clients
           pushd udp2raw/Clients || exit 1
-          wget -qO- https://api.github.com/repos/wangyu-/udp2raw/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/wangyu-/udp2raw/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # udp2raw-multi
           mkdir -p udp2raw-multi/Clients
           pushd udp2raw-multi/Clients || exit 1
-          wget -qO- https://api.github.com/repos/wangyu-/udp2raw-multiplatform/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/wangyu-/udp2raw-multiplatform/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # brook
           mkdir -p brook/Clients
           pushd brook/Clients || exit 1
-          wget -qO- https://api.github.com/repos/txthinking/brook/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/txthinking/brook/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
           # clash premium
           mkdir -p clash/Clients
           pushd clash/Clients || exit 1
-          wget -qO- https://api.github.com/repos/Dreamacro/clash/releases/tags/premium | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | wget -q -i -
+          wget -qO- https://api.github.com/repos/Dreamacro/clash/releases/tags/premium | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # netch
+          mkdir -p netch/Clients
+          pushd netch/Clients || exit 1
+          export NETCH_VER=$(wget -qO- https://api.github.com/repos/netchx/netch/tags | grep 'name' | cut -d\" -f4 | sort -hr | sed $'/\//d' | head -1)
+          wget -qO- https://api.github.com/repos/netchx/netch/releases/tags/${NETCH_VER} | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # bbdown
+          mkdir -p bbdown/Clients
+          pushd bbdown/Clients || exit 1
+          wget -qO- https://api.github.com/repos/nilaoda/BBDown/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # youtube-dl
+          mkdir -p youtube-dl/Clients
+          pushd youtube-dl/Clients || exit 1
+          wget -qO- https://api.github.com/repos/ytdl-org/youtube-dl/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # yt-dlp
+          mkdir -p yt-dlp/Clients
+          pushd yt-dlp/Clients || exit 1
+          wget -qO- https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # lanzou-gui
+          mkdir -p lanzou-gui/Clients
+          pushd lanzou-gui/Clients || exit 1
+          wget -qO- https://api.github.com/repos/rachpt/lanzou-gui/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # aliyunpan
+          mkdir -p aliyunpan/Clients
+          pushd aliyunpan/Clients || exit 1
+          wget -qO- https://api.github.com/repos/liupan1890/aliyunpan/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # filebrowser
+          mkdir -p filebrowser/Clients
+          pushd filebrowser/Clients || exit 1
+          wget -qO- https://api.github.com/repos/filebrowser/filebrowser/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # m3u8-cli
+          mkdir -p m3u8-cli/Clients
+          pushd m3u8-cli/Clients || exit 1
+          wget -qO- https://api.github.com/repos/nilaoda/N_m3u8DL-CLI/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
+          popd || exit 1
+          # yesplaymusic
+          mkdir -p yesplaymusic/Clients
+          pushd yesplaymusic/Clients || exit 1
+          wget -qO- https://api.github.com/repos/qier222/YesPlayMusic/releases/latest | jq ".assets[] | {browser_download_url}" -c | jq .browser_download_url -r | aria2c -c -x 8 -s 8 -j 1 -k 1M -i -
           popd || exit 1
 
       - name: Compress to packages
         run: |
           mkdir -p release
-          export Z9R="zip -9 -r -qq"
+          # using 7zip
+          mkdir -p 7zip
+          wget "https://www.7-zip.org/a/7z2201-linux-x64.tar.xz" -O 7zip/7zip.tar.xz
+          tar -xf 7zip/7zip.tar.xz -C 7zip/ && mv 7zip/7zz .
+          rm -rf 7zip && chmod +x 7zz
           # Compressing
-          ${Z9R} shadowsocks-windows.zip shadowsocks-windows
-          ${Z9R} shadowsocks-android.zip shadowsocks-android
-          ${Z9R} shadowsocksx-ng.zip shadowsocksx-ng
-          ${Z9R} v2rayn.zip v2rayn
-          ${Z9R} v2rayng.zip v2rayng
-          ${Z9R} v2rayu.zip v2rayu
-          ${Z9R} v2raya.zip v2raya
-          ${Z9R} qv2ray-qv2ray.zip qv2ray-qv2ray
-          ${Z9R} ssnet-qv2ray.zip ssnet-qv2ray
-          ${Z9R} clashx.zip clashx
-          ${Z9R} clash-cfw.zip clash-cfw
-          ${Z9R} clash-cfa.zip clash-cfa
-          ${Z9R} clash-dotnet.zip clash-dotnet
-          ${Z9R} igniter.zip igniter
-          ${Z9R} sagernet.zip sagernet
-          ${Z9R} anxray.zip anxray
-          ${Z9R} udp2raw.zip udp2raw
-          ${Z9R} udp2raw-multi.zip udp2raw-multi
-          ${Z9R} brook.zip brook
-          ${Z9R} clash.zip clash
-          ${Z9R} v2ray-core.zip v2ray-core
-          ${Z9R} Xray-core.zip Xray-core
-          ${Z9R} trojan-gfw.zip trojan-gfw
-          ${Z9R} trojan-go.zip trojan-go
-          ${Z9R} trojan-r.zip trojan-r
-          ${Z9R} trojan-rs.zip trojan-rs
-          ${Z9R} trojanrust.zip trojanrust
-          ${Z9R} shadowsocks-libev.zip shadowsocks-libev
-          ${Z9R} go-shadowsocks2.zip go-shadowsocks2
-          ${Z9R} shadowsocks-rust.zip shadowsocks-rust
-          ${Z9R} naiveproxy.zip naiveproxy
-          ${Z9R} forwardproxy.zip forwardproxy
-          ${Z9R} dns-over-https.zip dns-over-https
-          ${Z9R} glider.zip glider
-          ${Z9R} gost.zip gost
-          ${Z9R} hysteria.zip hysteria
-          ${Z9R} pingtunnel.zip pingtunnel
-          ${Z9R} dnsproxy.zip dnsproxy
-          ${Z9R} quilkin.zip quilkin
+          PROJECTS=(
+          shadowsocks-windows
+          shadowsocks-android
+          shadowsocksx-ng
+          v2rayn
+          v2rayng
+          v2rayu
+          v2raya
+          qv2ray-qv2ray
+          ssnet-qv2ray
+          nekoray
+          nekobox-android
+          clashx
+          clash-cfw
+          clash-cfa
+          clash-verge
+          clashn
+          igniter
+          sagernet
+          matsuri
+          mieru
+          socratex
+          anxray
+          svt-android
+          v2ray-rules-dat
+          geoip
+          china-ip
+          ip-scanner
+          udp2raw
+          udp2raw-multi
+          tuic
+          brook
+          clash
+          v2ray-core
+          xray-core
+          sing-box
+          trojan-gfw
+          trojan-go
+          trojan-r
+          trojan-rs
+          trojanrust
+          shadowsocks-libev
+          go-shadowsocks2
+          shadowsocks-rust
+          shadow-tls
+          naiveproxy
+          lede
+          openwrt-passwall
+          openwrt-passwall2
+          helloworld
+          openwrt-packages
+          small
+          forwardproxy
+          glider
+          gost
+          hysteria
+          pingtunnel
+          echo
+          netch
+          bbdown
+          dns-over-https
+          youtube-dl
+          yt-dlp
+          lanzou-gui
+          aliyunpan
+          unlock-music
+          filebrowser
+          m3u8-cli
+          bb-evolved
+          yesplaymusic
+          vue-color-avatar
+          onlyfans
+          )
+          for PROJECT in ${PROJECTS[@]}; do
+            if [ "${PROJECT}" == "matsuri" ] || [ "${PROJECT}" == "nekobox-android" ]; then
+              # fix "matsuri/buildScript/nkmr : errno=2 : No such file or directory"
+              # fix "nekobox-android/buildScript/nkmr : errno=2 : No such file or directory"
+              rm -rf ${PROJECT}/buildScript/nkmr
+              ./7zz a -m0=lzma2 -mx9 ${PROJECT}.7z ${PROJECT}
+              rm -rf ${PROJECT}
+            else
+              ./7zz a -m0=lzma2 -mx9 ${PROJECT}.7z ${PROJECT}
+              rm -rf ${PROJECT}
+            fi
+          done
           # Move to Release
-          mv *.zip release
+          mv *.7z release
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: ncipollo/release-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           name: ${{ env.VERSION }}
-          tag_name: ${{ env.VERSION }}
+          tag: ${{ env.VERSION }}
           draft: false
           prerelease: false
-          files: |
+          artifacts: |
             ./release/*
+            
+      - name: Delete Older Release
+        uses: dev-drprasad/delete-older-releases@v0.2.0
+        if: (!cancelled())
+        with:
+          repo: bolucat/Archive
+          keep_latest: 30
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            
+      - name: Healthy Check
+        if: (!cancelled())
+        run: |
+          echo "Check space usage"
+          df -hT
+          echo "Check memory usage"
+          free -m

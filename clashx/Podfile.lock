@@ -1,0 +1,77 @@
+PODS:
+  - Alamofire (5.7.1)
+  - AppCenter/Analytics (5.0.3):
+    - AppCenter/Core
+  - AppCenter/Core (5.0.3)
+  - AppCenter/Crashes (5.0.3):
+    - AppCenter/Core
+  - CocoaLumberjack/Core (3.8.0)
+  - CocoaLumberjack/Swift (3.8.0):
+    - CocoaLumberjack/Core
+  - FlexibleDiff (0.0.9)
+  - GzipSwift (5.1.1)
+  - LetsMove (1.25)
+  - RxCocoa (6.5.0):
+    - RxRelay (= 6.5.0)
+    - RxSwift (= 6.5.0)
+  - RxRelay (6.5.0):
+    - RxSwift (= 6.5.0)
+  - RxSwift (6.5.0)
+  - Sparkle (2.4.2)
+  - Starscream (3.1.1)
+  - SwiftLint (0.52.4)
+  - SwiftyJSON (5.0.1)
+  - WebViewJavascriptBridge (6.0.3)
+
+DEPENDENCIES:
+  - Alamofire (~> 5.0)
+  - AppCenter/Analytics
+  - AppCenter/Crashes
+  - CocoaLumberjack/Swift
+  - FlexibleDiff
+  - GzipSwift
+  - LetsMove
+  - RxCocoa
+  - RxSwift
+  - Sparkle (~> 2.0)
+  - Starscream (= 3.1.1)
+  - SwiftLint
+  - SwiftyJSON
+  - WebViewJavascriptBridge
+
+SPEC REPOS:
+  trunk:
+    - Alamofire
+    - AppCenter
+    - CocoaLumberjack
+    - FlexibleDiff
+    - GzipSwift
+    - LetsMove
+    - RxCocoa
+    - RxRelay
+    - RxSwift
+    - Sparkle
+    - Starscream
+    - SwiftLint
+    - SwiftyJSON
+    - WebViewJavascriptBridge
+
+SPEC CHECKSUMS:
+  Alamofire: 0123a34370cb170936ae79a8df46cc62b2edeb88
+  AppCenter: a4070ec3d4418b5539067a51f57155012e486ebd
+  CocoaLumberjack: 78abfb691154e2a9df8ded4350d504ee19d90732
+  FlexibleDiff: b9ee9b8305b42c784f5dd40589203c97c55bbaa0
+  GzipSwift: 893f3e48e597a1a4f62fafcb6514220fcf8287fa
+  LetsMove: 7b9fe44737707d984fbd3f47af46609a9a07b461
+  RxCocoa: 94f817b71c07517321eb4f9ad299112ca8af743b
+  RxRelay: 1de1523e604c72b6c68feadedd1af3b1b4d0ecbd
+  RxSwift: 5710a9e6b17f3c3d6e40d6e559b9fa1e813b2ef8
+  Sparkle: 5ef7097e655c60f4aeb23fd1658fc3e8dd50f4ec
+  Starscream: 4bb2f9942274833f7b4d296a55504dcfc7edb7b0
+  SwiftLint: 1cc5cd61ba9bacb2194e340aeb47a2a37fda00b3
+  SwiftyJSON: 2f33a42c6fbc52764d96f13368585094bfd8aa5e
+  WebViewJavascriptBridge: 7f5bc4d3581e672e8f32bd0f812d54bc69bb8e29
+
+PODFILE CHECKSUM: 063fb0a8853b3bc465ec93e15b75c951093e400a
+
+COCOAPODS: 1.12.1
