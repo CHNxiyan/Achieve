@@ -101,7 +101,8 @@ class V2rayConfig: NSObject {
     var socksHost = "127.0.0.1"
     var httpPort = "1087"
     var httpHost = "127.0.0.1"
-    var enableUdp = true
+    var enableSocks = true
+    var enableUdp = false
     var enableMux = false
     var enableSniffing = false
     var mux = 8
@@ -213,14 +214,6 @@ class V2rayConfig: NSObject {
         self.v2ray.log.loglevel = V2rayLog.logLevel(rawValue: UserDefaults.get(forKey: .v2rayLogLevel) ?? "info") ?? V2rayLog.logLevel.info
 
         // ------------------------------------- inbound start ---------------------------------------------
-        var inHttp = V2rayInbound()
-        inHttp.port = self.httpPort
-        inHttp.listen = self.httpHost
-        inHttp.protocol = V2rayProtocolInbound.http
-        if self.enableSniffing {
-            inHttp.sniffing = V2rayInboundSniffing()
-        }
-
         var inSocks = V2rayInbound()
         inSocks.port = self.socksPort
         inSocks.listen = self.socksHost
@@ -230,8 +223,16 @@ class V2rayConfig: NSObject {
             inSocks.sniffing = V2rayInboundSniffing()
         }
 
+        // check same
         if self.httpPort == self.socksPort {
-            self.httpPort = String((Int(self.socksPort) ?? 0) + 1)
+            self.httpPort = String((Int(self.socksPort) ?? 1080) + 1)
+        }
+        var inHttp = V2rayInbound()
+        inHttp.port = self.httpPort
+        inHttp.listen = self.httpHost
+        inHttp.protocol = V2rayProtocolInbound.http
+        if self.enableSniffing {
+            inHttp.sniffing = V2rayInboundSniffing()
         }
 
         // inbounds
@@ -244,7 +245,10 @@ class V2rayConfig: NSObject {
                 inbounds.append(item)
             }
         }
-        inbounds.append(inSocks)
+        // for ping just use http
+        if self.enableSocks {
+            inbounds.append(inSocks)
+        }
         inbounds.append(inHttp)
         self.v2ray.inbounds = inbounds
 
@@ -1503,39 +1507,5 @@ class V2rayConfig: NSObject {
             stream.grpcSettings = grpcSettings
         }
         return stream
-    }
-
-    // create current v2ray server json file
-    static func createJsonFile(item: V2rayItem) {
-        var jsonText = item.json
-
-        // parse old
-        let vCfg = V2rayConfig()
-        vCfg.parseJson(jsonText: item.json)
-
-        // combine new default config
-        jsonText = vCfg.combineManual()
-        _ = V2rayServer.save(v2ray: item, jsonData: jsonText)
-
-        // path: /Application/V2rayU.app/Contents/Resources/config.json
-        guard let jsonFile = V2rayServer.getJsonFile() else {
-            NSLog("unable get config file path")
-            return
-        }
-
-        do {
-
-            let jsonFilePath = URL.init(fileURLWithPath: jsonFile)
-
-            // delete before config
-            if FileManager.default.fileExists(atPath: jsonFile) {
-                try? FileManager.default.removeItem(at: jsonFilePath)
-            }
-
-            try jsonText.write(to: jsonFilePath, atomically: true, encoding: String.Encoding.utf8)
-        } catch let error {
-            // failed to write file – bad permissions, bad filename, missing permissions, or more likely it can't be converted to the encoding
-            NSLog("save json file fail: \(error)")
-        }
     }
 }
