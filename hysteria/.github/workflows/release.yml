@@ -1,65 +1,49 @@
-name: Build and release
+name: "Build release"
 
 on:
   push:
     tags:
-      - 'v*'
+      - app/v*.*.*
 
 jobs:
-
   build:
-    name: Build and release
+    name: Build
     runs-on: ubuntu-latest
     env:
       ACTIONS_ALLOW_UNSECURE_COMMANDS: true
 
     steps:
-
       - name: Check out
         uses: actions/checkout@v3
 
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: "1.20"
+          go-version: "1.21"
+
+      - name: Setup Python # This is for the build script
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
       - name: Run build script
-        env:
-          HY_APP_PLATFORMS: 'darwin/amd64,darwin/amd64-avx,darwin/arm64,windows/amd64,windows/amd64-avx,windows/386,windows/arm64,linux/amd64,linux/amd64-avx,linux/386,linux/arm,linux/armv5,linux/arm64,linux/s390x,linux/mipsle,linux/mipsle-sf,freebsd/amd64,freebsd/amd64-avx,freebsd/386,freebsd/arm,freebsd/arm64'
-        run: ./build.sh
-        shell: bash
+        run: |
+          pip install requests
+          export HY_APP_PLATFORMS=$(sed 's/\r$//' platforms.txt | awk '!/^#/ && !/^$/' | paste -sd ",")
+          python hyperbole.py build -r
 
       - name: Generate hashes
         run: |
-          cd build
-          for f in $(find . -type f); do
-            sha256sum $f | sudo tee -a hashes.txt
+          for file in build/*; do
+            sha256sum $file >> build/hashes.txt
           done
 
       - name: Upload
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            ./build/hysteria-darwin-amd64
-            ./build/hysteria-darwin-amd64-avx
-            ./build/hysteria-darwin-arm64
-            ./build/hysteria-windows-amd64.exe
-            ./build/hysteria-windows-amd64-avx.exe
-            ./build/hysteria-windows-386.exe
-            ./build/hysteria-windows-arm64.exe
-            ./build/hysteria-linux-amd64
-            ./build/hysteria-linux-amd64-avx
-            ./build/hysteria-linux-386
-            ./build/hysteria-linux-arm
-            ./build/hysteria-linux-armv5
-            ./build/hysteria-linux-arm64
-            ./build/hysteria-linux-s390x
-            ./build/hysteria-linux-mipsle
-            ./build/hysteria-linux-mipsle-sf
-            ./build/hysteria-freebsd-amd64
-            ./build/hysteria-freebsd-amd64-avx
-            ./build/hysteria-freebsd-386
-            ./build/hysteria-freebsd-arm
-            ./build/hysteria-freebsd-arm64
-            ./build/hashes.txt
+          files: build/*
+
+      - name: Publish to API
+        run: |
+          export HY_API_POST_KEY=${{ secrets.HY2_API_POST_KEY }}
+          python hyperbole.py publish

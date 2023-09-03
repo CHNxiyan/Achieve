@@ -84,9 +84,7 @@ type Ports struct {
 
 func GetTunConf() LC.Tun {
 	if tunLister == nil {
-		return LC.Tun{
-			Enable: false,
-		}
+		return LastTunConf
 	}
 	return tunLister.Config()
 }
@@ -517,7 +515,6 @@ func ReCreateTun(tunConf LC.Tun, tcpIn chan<- C.ConnContext, udpIn chan<- C.Pack
 		if err != nil {
 			log.Errorln("Start TUN listening error: %s", err.Error())
 			tunConf.Enable = false
-			Cleanup(false)
 		}
 	}()
 
@@ -528,7 +525,7 @@ func ReCreateTun(tunConf LC.Tun, tcpIn chan<- C.ConnContext, udpIn chan<- C.Pack
 		return
 	}
 
-	Cleanup(true)
+	closeTunListener()
 
 	if !tunConf.Enable {
 		return
@@ -898,10 +895,13 @@ func hasTunConfigChange(tunConf *LC.Tun) bool {
 	return false
 }
 
-func Cleanup(wait bool) {
+func closeTunListener() {
 	if tunLister != nil {
 		tunLister.Close()
 		tunLister = nil
 	}
-	LastTunConf = LC.Tun{}
+}
+
+func Cleanup() {
+	closeTunListener()
 }

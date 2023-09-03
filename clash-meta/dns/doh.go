@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	timeC "github.com/Dreamacro/clash/component/time"
 	tlsC "github.com/Dreamacro/clash/component/tls"
 	C "github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/log"
@@ -228,8 +227,6 @@ func (doh *dnsOverHTTPS) exchangeHTTPSClient(
 		return nil, fmt.Errorf("requesting %s: %w", url, err)
 	}
 	defer httpResp.Body.Close()
-
-	timeC.SaveTimeFromHttpHeader(httpResp.Header)
 
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {

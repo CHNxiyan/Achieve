@@ -16,9 +16,9 @@ import (
 	"github.com/Dreamacro/clash/component/dialer"
 	"github.com/Dreamacro/clash/component/proxydialer"
 	"github.com/Dreamacro/clash/component/resolver"
-	timeC "github.com/Dreamacro/clash/component/time"
 	tlsC "github.com/Dreamacro/clash/component/tls"
 	C "github.com/Dreamacro/clash/constant"
+	"github.com/Dreamacro/clash/ntp"
 	"github.com/Dreamacro/clash/transport/gun"
 	clashVMess "github.com/Dreamacro/clash/transport/vmess"
 
@@ -308,7 +308,7 @@ func (v *Vmess) DialContextWithDialer(ctx context.Context, dialer C.Dialer, meta
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 	}
-	tcpKeepAlive(c)
+	N.TCPKeepAlive(c)
 	defer func(c net.Conn) {
 		safeConnClose(c, err)
 	}(c)
@@ -369,7 +369,7 @@ func (v *Vmess) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, met
 	if err != nil {
 		return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 	}
-	tcpKeepAlive(c)
+	N.TCPKeepAlive(c)
 	defer func(c net.Conn) {
 		safeConnClose(c, err)
 	}(c)
@@ -417,7 +417,7 @@ func NewVmess(option VmessOption) (*Vmess, error) {
 	if option.AuthenticatedLength {
 		options = append(options, vmess.ClientWithAuthenticatedLength())
 	}
-	options = append(options, vmess.ClientWithTimeFunc(timeC.Now))
+	options = append(options, vmess.ClientWithTimeFunc(ntp.Now))
 	client, err := vmess.NewClient(option.UUID, security, option.AlterID, options...)
 	if err != nil {
 		return nil, err
@@ -469,7 +469,7 @@ func NewVmess(option VmessOption) (*Vmess, error) {
 			if err != nil {
 				return nil, fmt.Errorf("%s connect error: %s", v.addr, err.Error())
 			}
-			tcpKeepAlive(c)
+			N.TCPKeepAlive(c)
 			return c, nil
 		}
 

@@ -75,9 +75,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
           Analytics.self,
           Crashes.self
         ])
-        
-        // check v2ray core
-        V2rayCore().check()
 
         // auto check updates
         if UserDefaults.getBool(forKey: .autoCheckVersion) {
@@ -113,12 +110,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func checkDefault() {
-        if UserDefaults.get(forKey: .xRayCoreVersion) == nil {
-            UserDefaults.set(forKey: .xRayCoreVersion, value: V2rayCore.version)
-        }
-        if UserDefaults.get(forKey: .autoCheckVersion) == nil {
-            UserDefaults.setBool(forKey: .autoCheckVersion, value: true)
-        }
         if UserDefaults.get(forKey: .autoUpdateServers) == nil {
             UserDefaults.setBool(forKey: .autoUpdateServers, value: true)
         }
@@ -156,14 +147,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func onWakeNote(note: NSNotification) {
-        print("onWakeNote")
+        NSLog("onWakeNote")
         // reconnect
         if UserDefaults.getBool(forKey: .v2rayTurnOn) {
+            NSLog("V2rayLaunch restart")
             V2rayLaunch.Stop()
             V2rayLaunch.Start()
         }
-        // check v2ray core
-        V2rayCore().check()
         // auto check updates
         if UserDefaults.getBool(forKey: .autoCheckVersion) {
             menuController.checkV2rayUVersion()
@@ -175,11 +165,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             V2raySubSync().sync()
         }
         // ping
-//        PingSpeed().pingAll()
+        PingSpeed().pingAll()
     }
 
     @objc func onSleepNote(note: NSNotification) {
-        print("onSleepNote")
+        NSLog("onSleepNote")
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {

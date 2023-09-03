@@ -16,6 +16,7 @@ import (
 	"github.com/Dreamacro/clash/adapter/outbound"
 	"github.com/Dreamacro/clash/adapter/outboundgroup"
 	"github.com/Dreamacro/clash/adapter/provider"
+	N "github.com/Dreamacro/clash/common/net"
 	"github.com/Dreamacro/clash/common/utils"
 	"github.com/Dreamacro/clash/component/auth"
 	"github.com/Dreamacro/clash/component/dialer"
@@ -59,6 +60,7 @@ type General struct {
 	Sniffing                bool              `json:"sniffing"`
 	EBpf                    EBpf              `json:"-"`
 	GlobalClientFingerprint string            `json:"global-client-fingerprint"`
+	KeepAliveInterval       int               `json:"keep-alive-interval"`
 }
 
 // Inbound config
@@ -85,6 +87,14 @@ type Controller struct {
 	ExternalControllerTLS string `json:"-"`
 	ExternalUI            string `json:"-"`
 	Secret                string `json:"-"`
+}
+
+// NTP config
+type NTP struct {
+	Enable   bool   `yaml:"enable"`
+	Server   string `yaml:"server"`
+	Port     int    `yaml:"port"`
+	Interval int    `yaml:"interval"`
 }
 
 // DNS config
@@ -151,6 +161,7 @@ type Experimental struct {
 type Config struct {
 	General       *General
 	IPTables      *IPTables
+	NTP           *NTP
 	DNS           *DNS
 	Experimental  *Experimental
 	Hosts         *trie.DomainTrie[resolver.HostValue]
@@ -165,6 +176,13 @@ type Config struct {
 	Tunnels       []LC.Tunnel
 	Sniffer       *Sniffer
 	TLS           *TLS
+}
+
+type RawNTP struct {
+	Enable     bool   `yaml:"enable"`
+	Server     string `yaml:"server"`
+	ServerPort int    `yaml:"server-port"`
+	Interval   int    `yaml:"interval"`
 }
 
 type RawDNS struct {
@@ -264,11 +282,13 @@ type RawConfig struct {
 	TCPConcurrent           bool              `yaml:"tcp-concurrent" json:"tcp-concurrent"`
 	FindProcessMode         P.FindProcessMode `yaml:"find-process-mode" json:"find-process-mode"`
 	GlobalClientFingerprint string            `yaml:"global-client-fingerprint"`
+	KeepAliveInterval       int               `yaml:"keep-alive-interval"`
 
 	Sniffer       RawSniffer                `yaml:"sniffer"`
 	ProxyProvider map[string]map[string]any `yaml:"proxy-providers"`
 	RuleProvider  map[string]map[string]any `yaml:"rule-providers"`
 	Hosts         map[string]any            `yaml:"hosts"`
+	NTP           RawNTP                    `yaml:"ntp"`
 	DNS           RawDNS                    `yaml:"dns"`
 	Tun           RawTun                    `yaml:"tun"`
 	TuicServer    RawTuicServer             `yaml:"tuic-server"`
@@ -493,6 +513,9 @@ func ParseRawConfig(rawCfg *RawConfig) (*Config, error) {
 	}
 	config.Hosts = hosts
 
+	ntpCfg := paresNTP(rawCfg)
+	config.NTP = ntpCfg
+
 	dnsCfg, err := parseDNS(rawCfg, hosts, rules, ruleProviders)
 	if err != nil {
 		return nil, err
@@ -539,6 +562,11 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 	C.GeoSiteUrl = cfg.GeoXUrl.GeoSite
 	C.MmdbUrl = cfg.GeoXUrl.Mmdb
 	C.GeodataMode = cfg.GeodataMode
+	if cfg.KeepAliveInterval == 0 {
+		cfg.KeepAliveInterval = 30
+	}
+	N.KeepAliveInterval = time.Duration(cfg.KeepAliveInterval) * time.Second
+	log.Infoln("Keep Alive Interval set %+v", N.KeepAliveInterval)
 	// checkout externalUI exist
 	if externalUI != "" {
 		externalUI = C.Path.Resolve(externalUI)
@@ -580,6 +608,7 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 		FindProcessMode:         cfg.FindProcessMode,
 		EBpf:                    cfg.EBpf,
 		GlobalClientFingerprint: cfg.GlobalClientFingerprint,
+		KeepAliveInterval:       cfg.KeepAliveInterval,
 	}, nil
 }
 
@@ -1130,6 +1159,29 @@ func parseFallbackGeoSite(countries []string, rules []C.Rule) ([]*router.DomainM
 		}
 	}
 	return sites, nil
+}
+
+func paresNTP(rawCfg *RawConfig) *NTP {
+	var server = "time.apple.com"
+	var port = 123
+	var interval = 30
+	cfg := rawCfg.NTP
+	if len(cfg.Server) != 0 {
+		server = cfg.Server
+	}
+	if cfg.ServerPort != 0 {
+		port = cfg.ServerPort
+	}
+	if cfg.Interval != 0 {
+		interval = cfg.Interval
+	}
+	ntpCfg := &NTP{
+		Enable:   cfg.Enable,
+		Server:   server,
+		Port:     port,
+		Interval: interval,
+	}
+	return ntpCfg
 }
 
 func parseDNS(rawCfg *RawConfig, hosts *trie.DomainTrie[resolver.HostValue], rules []C.Rule, ruleProviders map[string]providerTypes.RuleProvider) (*DNS, error) {
