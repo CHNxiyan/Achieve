@@ -161,6 +161,10 @@ has_prefix() {
     [[ "x$_s" != "x${_s#"$_prefix"}" ]]
 }
 
+generate_random_password() {
+  dd if=/dev/random bs=18 count=1 status=none | base64
+}
+
 systemctl() {
   if [[ "x$FORCE_NO_SYSTEMD" == "x2" ]] || ! has_command systemctl; then
     warning "Ignored systemd command: systemctl $@"
@@ -646,7 +650,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=$EXECUTABLE_INSTALL_PATH server --config ${_config_name}.yaml
-WorkingDirectory=$CONFIG_DIR
+WorkingDirectory=$HYSTERIA_HOME_DIR
 User=$HYSTERIA_USER
 Group=$HYSTERIA_USER
 Environment=HYSTERIA_LOG_LEVEL=info
@@ -681,7 +685,7 @@ acme:
 
 auth:
   type: password
-  password: Se7RAuFZ8Lzg
+  password: $(generate_random_password)
 
 masquerade:
   type: proxy
@@ -758,7 +762,7 @@ is_hysteria1_version() {
 get_installed_version() {
   if is_hysteria_installed; then
     if "$EXECUTABLE_INSTALL_PATH" version > /dev/null 2>&1; then
-      "$EXECUTABLE_INSTALL_PATH" version | grep Version | grep -o 'v[.1-9]*'
+      "$EXECUTABLE_INSTALL_PATH" version | grep Version | grep -o 'v[.0-9]*'
     elif "$EXECUTABLE_INSTALL_PATH" -v > /dev/null 2>&1; then
       # hysteria 1
       "$EXECUTABLE_INSTALL_PATH" -v | cut -d ' ' -f 3
