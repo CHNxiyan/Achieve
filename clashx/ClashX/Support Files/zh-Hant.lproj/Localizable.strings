@@ -95,6 +95,9 @@
 "Download speed" = "下載速率";
 
 /* No comment provided by engineer. */
+"Edit in Text Mode" = "編輯配置";
+
+/* No comment provided by engineer. */
 "fail" = "失敗";
 
 /* No comment provided by engineer. */
@@ -102,6 +105,9 @@
 
 /* No comment provided by engineer. */
 "Fail:" = "失敗：";
+
+/* No comment provided by engineer. */
+"fails: %@" = "失敗: %@";
 
 /* No comment provided by engineer. */
 "Global" = "全局";
@@ -182,6 +188,9 @@
 "Quit" = "退出";
 
 /* No comment provided by engineer. */
+"Quit ClashX?" = "退出 ClashX?";
+
+/* No comment provided by engineer. */
 "Recent Connections" = "最近連線";
 
 /* No comment provided by engineer. */
@@ -218,6 +227,9 @@
 "Rule Mode" = "規則模式";
 
 /* No comment provided by engineer. */
+"Script" = "腳本";
+
+/* No comment provided by engineer. */
 "Should be a least 1 hour" = "應該至少 1 小時";
 
 /* No comment provided by engineer. */
@@ -251,6 +263,9 @@
 "Testing" = "測試中";
 
 /* No comment provided by engineer. */
+"The active connections will be interrupted." = "活躍的連接將被中斷。";
+
+/* No comment provided by engineer. */
 "The remote config name is duplicated" = "遠端配置名稱重複";
 
 /* No comment provided by engineer. */
@@ -260,10 +275,16 @@
 "This version of ClashX contains a break change due to clash core 1.0 released. Check if your config is not working properly." = "此版本的 ClashX 包含因 clash core 1.0 發布而導致的中斷更改。請檢查您的配置是否無法正常工作";
 
 /* No comment provided by engineer. */
+"total: %d, success: %d" = "共計: %d, 成功: %d";
+
+/* No comment provided by engineer. */
 "Type" = "類型";
 
 /* No comment provided by engineer. */
 "Unknown" = "未知";
+
+/* No comment provided by engineer. */
+"Update external resource complete" = "更新外部資源完成";
 
 /* No comment provided by engineer. */
 "Update GEOIP Database" = "更新 GEOIP 數據庫";

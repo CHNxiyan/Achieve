@@ -95,6 +95,9 @@
 "Download speed" = "下载速率";
 
 /* No comment provided by engineer. */
+"Edit in Text Mode" = "编辑配置";
+
+/* No comment provided by engineer. */
 "fail" = "失败";
 
 /* No comment provided by engineer. */
@@ -102,6 +105,9 @@
 
 /* No comment provided by engineer. */
 "Fail:" = "失败：";
+
+/* No comment provided by engineer. */
+"fails: %@" = "失败: %@";
 
 /* No comment provided by engineer. */
 "Global" = "全局";
@@ -182,6 +188,9 @@
 "Quit" = "退出";
 
 /* No comment provided by engineer. */
+"Quit ClashX?" = "退出ClashX?";
+
+/* No comment provided by engineer. */
 "Recent Connections" = "最近连接";
 
 /* No comment provided by engineer. */
@@ -218,6 +227,9 @@
 "Rule Mode" = "规则判断";
 
 /* No comment provided by engineer. */
+"Script" = "脚本";
+
+/* No comment provided by engineer. */
 "Should be a least 1 hour" = "至少需要1小时间隔";
 
 /* No comment provided by engineer. */
@@ -251,6 +263,9 @@
 "Testing" = "测速中";
 
 /* No comment provided by engineer. */
+"The active connections will be interrupted." = "活动的连接将被强制打断。";
+
+/* No comment provided by engineer. */
 "The remote config name is duplicated" = "托管配置文件名称重复";
 
 /* No comment provided by engineer. */
@@ -260,10 +275,16 @@
 "This version of ClashX contains a break change due to clash core 1.0 released. Check if your config is not working properly." = "由于Clash Core发布1.0版本，使用此版本的 ClashX 可能需要更新配置内容\n前往 https://github.com/Dreamacro/clash/wiki/breaking-changes-in-1.0.0 查看详情";
 
 /* No comment provided by engineer. */
+"total: %d, success: %d" = "共计: %d, 成功: %d";
+
+/* No comment provided by engineer. */
 "Type" = "类型";
 
 /* No comment provided by engineer. */
 "Unknown" = "未知";
+
+/* No comment provided by engineer. */
+"Update external resource complete" = "更新外部资源完成";
 
 /* No comment provided by engineer. */
 "Update GEOIP Database" = "更新IP数据库";

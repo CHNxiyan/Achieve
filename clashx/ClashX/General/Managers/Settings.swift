@@ -18,10 +18,7 @@ enum Settings {
     @UserDefault("disableNoti", defaultValue: false)
     static var disableNoti: Bool
 
-    @UserDefault("usePacMode", defaultValue: false)
-    static var usePacMode: Bool
-
-    @UserDefault("configAutoUpdateInterval", defaultValue: 48*60*60)
+    @UserDefault("configAutoUpdateInterval", defaultValue: 48 * 60 * 60)
     static var configAutoUpdateInterval: TimeInterval
 
     static let proxyIgnoreListDefaultValue = ["192.168.0.0/16",
@@ -51,8 +48,8 @@ enum Settings {
     @UserDefault("disableSSIDList", defaultValue: [])
     static var disableSSIDList: [String]
 
-    @UserDefault("useSwiftUiMenuBar", defaultValue: true)
-    static var useSwiftUiMenuBar: Bool
+    @UserDefault("enableIPV6", defaultValue: false)
+    static var enableIPV6: Bool
 
     static let apiSecretKey = "api-secret"
 
@@ -83,5 +80,4 @@ enum Settings {
 
     @UserDefault("kDisableRestoreProxy", defaultValue: false)
     static var disableRestoreProxy: Bool
-
 }

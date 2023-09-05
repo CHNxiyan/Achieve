@@ -95,6 +95,9 @@
 "Download speed" = "Download speed";
 
 /* No comment provided by engineer. */
+"Edit in Text Mode" = "Edit in Text Mode";
+
+/* No comment provided by engineer. */
 "fail" = "fail";
 
 /* No comment provided by engineer. */
@@ -102,6 +105,9 @@
 
 /* No comment provided by engineer. */
 "Fail:" = "Fail:";
+
+/* No comment provided by engineer. */
+"fails: %@" = "fails: %@";
 
 /* No comment provided by engineer. */
 "Global" = "Global";
@@ -182,6 +188,9 @@
 "Quit" = "Quit";
 
 /* No comment provided by engineer. */
+"Quit ClashX?" = "Quit ClashX?";
+
+/* No comment provided by engineer. */
 "Recent Connections" = "Recent Connections";
 
 /* No comment provided by engineer. */
@@ -218,6 +227,9 @@
 "Rule Mode" = "Rule Mode";
 
 /* No comment provided by engineer. */
+"Script" = "Script";
+
+/* No comment provided by engineer. */
 "Should be a least 1 hour" = "Should be a least 1 hour";
 
 /* No comment provided by engineer. */
@@ -251,6 +263,9 @@
 "Testing" = "Testing";
 
 /* No comment provided by engineer. */
+"The active connections will be interrupted." = "The active connections will be interrupted.";
+
+/* No comment provided by engineer. */
 "The remote config name is duplicated" = "The remote config name is duplicated";
 
 /* No comment provided by engineer. */
@@ -260,10 +275,16 @@
 "This version of ClashX contains a break change due to clash core 1.0 released. Check if your config is not working properly." = "This version of ClashX contains a break change due to clash core 1.0 released. Check if your config is not working properly.";
 
 /* No comment provided by engineer. */
+"total: %d, success: %d" = "total: %d, success: %d";
+
+/* No comment provided by engineer. */
 "Type" = "Type";
 
 /* No comment provided by engineer. */
 "Unknown" = "Unknown";
+
+/* No comment provided by engineer. */
+"Update external resource complete" = "Update external resource complete";
 
 /* No comment provided by engineer. */
 "Update GEOIP Database" = "Update GEOIP Database";

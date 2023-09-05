@@ -5,13 +5,16 @@
 //  Created by CYC on 2018/7/30.
 //  Copyright © 2018年 yichengchen. All rights reserved.
 //
-import Foundation
 import CocoaLumberjack
+import Foundation
 
 enum ClashProxyMode: String, Codable {
     case rule
     case global
     case direct
+    #if PRO_VERSION
+        case script
+    #endif
 }
 
 extension ClashProxyMode {
@@ -20,13 +23,20 @@ extension ClashProxyMode {
         case .rule: return NSLocalizedString("Rule", comment: "")
         case .global: return NSLocalizedString("Global", comment: "")
         case .direct: return NSLocalizedString("Direct", comment: "")
+        #if PRO_VERSION
+            case .script: return NSLocalizedString("Script", comment: "")
+        #endif
         }
     }
 }
 
 enum ClashLogLevel: String, Codable {
     case info
-    case warning
+    #if PRO_VERSION
+        case warning = "warn"
+    #else
+        case warning
+    #endif
     case error
     case debug
     case silent

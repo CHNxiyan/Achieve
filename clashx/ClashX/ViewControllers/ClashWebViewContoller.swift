@@ -26,20 +26,12 @@ enum WebCacheCleaner {
 }
 
 class ClashWebViewContoller: NSViewController {
-    let webview: CustomWKWebView = CustomWKWebView()
+    let webview: CustomWKWebView = .init()
     var bridge: WebViewJavascriptBridge?
     let disposeBag = DisposeBag()
     let minSize = NSSize(width: 920, height: 580)
 
     let effectView = NSVisualEffectView()
-
-    static func createWindowController() -> NSWindowController {
-        let sb = NSStoryboard(name: "Main", bundle: Bundle.main)
-        let vc = sb.instantiateController(withIdentifier: "ClashWebViewContoller") as! ClashWebViewContoller
-        let wc = NSWindowController(window: NSWindow())
-        wc.contentViewController = vc
-        return wc
-    }
 
     override func loadView() {
         view = NSView(frame: NSRect(origin: .zero, size: minSize))
@@ -86,9 +78,6 @@ class ClashWebViewContoller: NSViewController {
 
         view.window?.isOpaque = false
         view.window?.backgroundColor = NSColor.clear
-        view.window?.styleMask.insert(.closable)
-        view.window?.styleMask.insert(.resizable)
-        view.window?.styleMask.insert(.miniaturizable)
         view.window?.toolbar = NSToolbar()
         view.window?.toolbar?.showsBaselineSeparator = false
         view.wantsLayer = true
@@ -109,7 +98,7 @@ class ClashWebViewContoller: NSViewController {
     }
 
     func loadWebRecourses() {
-        WKWebsiteDataStore.default().removeData(ofTypes: [WKWebsiteDataTypeOfflineWebApplicationCache, WKWebsiteDataTypeMemoryCache], modifiedSince: Date(timeIntervalSince1970: 0), completionHandler: { })
+        WKWebsiteDataStore.default().removeData(ofTypes: [WKWebsiteDataTypeOfflineWebApplicationCache, WKWebsiteDataTypeMemoryCache], modifiedSince: Date(timeIntervalSince1970: 0), completionHandler: {})
         // defaults write com.west2online.ClashX webviewUrl "your url"
         if let userDefineUrl = UserDefaults.standard.string(forKey: "webviewUrl"), let url = URL(string: userDefineUrl) {
             Logger.log("get user define url: \(url)")

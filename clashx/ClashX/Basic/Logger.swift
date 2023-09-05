@@ -10,7 +10,7 @@ import CocoaLumberjack
 import Foundation
 class Logger {
     static let shared = Logger()
-    var fileLogger: DDFileLogger = DDFileLogger()
+    var fileLogger: DDFileLogger = .init()
 
     private init() {
         #if DEBUG
@@ -19,7 +19,7 @@ class Logger {
         // default time zone is "UTC"
         let dataFormatter = DateFormatter()
         dataFormatter.setLocalizedDateFormatFromTemplate("YYYY/MM/dd HH:mm:ss:SSS")
-        fileLogger.logFormatter = DDLogFileFormatterDefault.init(dateFormatter: dataFormatter)
+        fileLogger.logFormatter = DDLogFileFormatterDefault(dateFormatter: dataFormatter)
         fileLogger.rollingFrequency = TimeInterval(60 * 60 * 24) // 24 hours
         fileLogger.logFileManager.maximumNumberOfLogFiles = 3
         DDLog.add(fileLogger)
@@ -29,15 +29,15 @@ class Logger {
     private func logToFile(msg: String, level: ClashLogLevel) {
         switch level {
         case .debug, .silent:
-            DDLogDebug(msg)
+            DDLogDebug(DDLogMessageFormat(stringLiteral: msg))
         case .error:
-            DDLogError(msg)
+            DDLogError(DDLogMessageFormat(stringLiteral: msg))
         case .info:
-            DDLogInfo(msg)
+            DDLogInfo(DDLogMessageFormat(stringLiteral: msg))
         case .warning:
-            DDLogWarn(msg)
+            DDLogWarn(DDLogMessageFormat(stringLiteral: msg))
         case .unknow:
-            DDLogWarn(msg)
+            DDLogWarn(DDLogMessageFormat(stringLiteral: msg))
         }
     }
 

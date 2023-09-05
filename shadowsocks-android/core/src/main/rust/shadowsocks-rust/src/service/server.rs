@@ -37,7 +37,7 @@ pub fn define_command_line_options(mut app: Command) -> Command {
                 .action(ArgAction::Set)
                 .value_parser(clap::value_parser!(PathBuf))
                 .value_hint(ValueHint::FilePath)
-                .help("Shadowsocks configuration file (https://shadowsocks.org/guide/configs.html)"),
+                .help("Shadowsocks configuration file (https://shadowsocks.org/doc/configs.html)"),
         )
         .arg(
             Arg::new("OUTBOUND_BIND_ADDR")
@@ -131,9 +131,11 @@ pub fn define_command_line_options(mut app: Command) -> Command {
         .arg(Arg::new("MANAGER_ADDR").long("manager-addr").num_args(1).action(ArgAction::Set).value_parser(vparser::parse_manager_addr).alias("manager-address").help("ShadowSocks Manager (ssmgr) address, could be \"IP:Port\", \"Domain:Port\" or \"/path/to/unix.sock\""))
         .arg(Arg::new("ACL").long("acl").num_args(1).action(ArgAction::Set).value_hint(ValueHint::FilePath).help("Path to ACL (Access Control List)"))
         .arg(Arg::new("DNS").long("dns").num_args(1).action(ArgAction::Set).help("DNS nameservers, formatted like [(tcp|udp)://]host[:port][,host[:port]]..., or unix:///path/to/dns, or predefined keys like \"google\", \"cloudflare\""))
+        .arg(Arg::new("DNS_CACHE_SIZE").long("dns-cache-size").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(usize)).help("DNS cache size in number of records. Works when trust-dns DNS backend is enabled."))
         .arg(Arg::new("TCP_NO_DELAY").long("tcp-no-delay").alias("no-delay").action(ArgAction::SetTrue).help("Set TCP_NODELAY option for sockets"))
         .arg(Arg::new("TCP_FAST_OPEN").long("tcp-fast-open").alias("fast-open").action(ArgAction::SetTrue).help("Enable TCP Fast Open (TFO)"))
         .arg(Arg::new("TCP_KEEP_ALIVE").long("tcp-keep-alive").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(u64)).help("Set TCP keep alive timeout seconds"))
+        .arg(Arg::new("TCP_MULTIPATH").long("tcp-multipath").alias("mptcp").action(ArgAction::SetTrue).help("Enable Multipath-TCP (MPTCP)"))
         .arg(Arg::new("UDP_TIMEOUT").long("udp-timeout").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(u64)).help("Timeout seconds for UDP relay"))
         .arg(Arg::new("UDP_MAX_ASSOCIATIONS").long("udp-max-associations").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(usize)).help("Maximum associations to be kept simultaneously for UDP relay"))
         .arg(Arg::new("INBOUND_SEND_BUFFER_SIZE").long("inbound-send-buffer-size").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(u32)).help("Set inbound sockets' SO_SNDBUF option"))
@@ -271,7 +273,7 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
     let (config, runtime) = {
         let config_path_opt = matches.get_one::<PathBuf>("CONFIG").cloned().or_else(|| {
             if !matches.contains_id("SERVER_CONFIG") {
-                match crate::config::get_default_config_path() {
+                match crate::config::get_default_config_path("server.json") {
                     None => None,
                     Some(p) => {
                         println!("loading default config {p:?}");
@@ -353,6 +355,7 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
                     plugin: p,
                     plugin_opts: matches.get_one::<String>("PLUGIN_OPT").cloned(),
                     plugin_args: Vec::new(),
+                    plugin_mode: Mode::TcpOnly,
                 };
 
                 sc.set_plugin(plugin);
@@ -382,6 +385,10 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
 
         if let Some(keep_alive) = matches.get_one::<u64>("TCP_KEEP_ALIVE") {
             config.keep_alive = Some(Duration::from_secs(*keep_alive));
+        }
+
+        if matches.get_flag("TCP_MULTIPATH") {
+            config.mptcp = true;
         }
 
         #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -429,6 +436,10 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
 
         if let Some(dns) = matches.get_one::<String>("DNS") {
             config.set_dns_formatted(dns).expect("dns");
+        }
+
+        if let Some(dns_cache_size) = matches.get_one::<usize>("DNS_CACHE_SIZE") {
+            config.dns_cache_size = Some(*dns_cache_size);
         }
 
         if matches.get_flag("IPV6_FIRST") {
