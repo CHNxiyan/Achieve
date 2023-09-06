@@ -91,7 +91,7 @@ curl() {
 }
 
 mktemp() {
-  command mktemp "$@" "hyservinst.XXXXXXXXXX"
+  command mktemp "$@" "/tmp/hyservinst.XXXXXXXXXX"
 }
 
 tput() {
@@ -178,7 +178,7 @@ show_argument_error_and_exit() {
   local _error_msg="$1"
 
   error "$_error_msg"
-  echo "Try \"$0 --help\" for the usage." >&2
+  echo "Try \"$0 --help\" for usage." >&2
   exit 22
 }
 
@@ -287,23 +287,48 @@ is_user_exists() {
   id "$_user" > /dev/null 2>&1
 }
 
+rerun_with_sudo() {
+  if ! has_command sudo; then
+    return 13
+  fi
+
+  local _target_script
+
+  if has_prefix "$0" "/dev/fd/"; then
+    local _tmp_script="$(mktemp)"
+    chmod +x "$_tmp_script"
+
+    if has_command curl; then
+      curl -o "$_tmp_script" 'https://get.hy2.sh/'
+    elif has_command wget; then
+      wget -O "$_tmp_script" 'https://get.hy2.sh'
+    else
+      return 127
+    fi
+
+    _target_script="$_tmp_script"
+  else
+    _target_script="$0"
+  fi
+
+  note "Re-running this script with sudo. You can also specify FORCE_NO_ROOT=1 to force this script to run as the current user."
+  exec_sudo "$_target_script" "${SCRIPT_ARGS[@]}"
+}
+
 check_permission() {
   if [[ "$UID" -eq '0' ]]; then
     return
   fi
 
-  note "The user currently executing this script is not root."
+  note "The user running this script is not root."
 
   case "$FORCE_NO_ROOT" in
     '1')
-      warning "FORCE_NO_ROOT=1 is specified, we will process without root and you may encounter the insufficient privilege error."
+      warning "FORCE_NO_ROOT=1 detected, we will proceed without root, but you may get insufficient privileges errors."
       ;;
     *)
-      if has_command sudo; then
-        note "Re-running this script with sudo, you can also specify FORCE_NO_ROOT=1 to force this script running with current user."
-        exec_sudo "$0" "${SCRIPT_ARGS[@]}"
-      else
-        error "Please run this script with root or specify FORCE_NO_ROOT=1 to force this script running with current user."
+      if ! rerun_with_sudo; then
+        error "Please run this script with root or specify FORCE_NO_ROOT=1 to force this script to run as the current user."
         exit 13
       fi
       ;;
@@ -312,7 +337,7 @@ check_permission() {
 
 check_environment_operating_system() {
   if [[ -n "$OPERATING_SYSTEM" ]]; then
-    warning "OPERATING_SYSTEM=$OPERATING_SYSTEM is specified, opreating system detection will not be perform."
+    warning "OPERATING_SYSTEM=$OPERATING_SYSTEM detected, operating system detection will not be performed."
     return
   fi
 
@@ -322,13 +347,13 @@ check_environment_operating_system() {
   fi
 
   error "This script only supports Linux."
-  note "Specify OPERATING_SYSTEM=[linux|darwin|freebsd|windows] to bypass this check and force this script running on this $(uname)."
+  note "Specify OPERATING_SYSTEM=[linux|darwin|freebsd|windows] to bypass this check and force this script to run on this $(uname)."
   exit 95
 }
 
 check_environment_architecture() {
   if [[ -n "$ARCHITECTURE" ]]; then
-    warning "ARCHITECTURE=$ARCHITECTURE is specified, architecture detection will not be performed."
+    warning "ARCHITECTURE=$ARCHITECTURE detected, architecture detection will not be performed."
     return
   fi
 
@@ -353,7 +378,7 @@ check_environment_architecture() {
       ;;
     *)
       error "The architecture '$(uname -a)' is not supported."
-      note "Specify ARCHITECTURE=<architecture> to bypass this check and force this script running on this $(uname -m)."
+      note "Specify ARCHITECTURE=<architecture> to bypass this check and force this script to run on this $(uname -m)."
       exit 8
       ;;
   esac
@@ -366,15 +391,15 @@ check_environment_systemd() {
 
   case "$FORCE_NO_SYSTEMD" in
     '1')
-      warning "FORCE_NO_SYSTEMD=1 is specified, we will process as normal even if systemd is not detected by us."
+      warning "FORCE_NO_SYSTEMD=1, we will proceed as normal even if systemd is not detected."
       ;;
     '2')
-      warning "FORCE_NO_SYSTEMD=2 is specified, we will process but all systemd related command will not be executed."
+      warning "FORCE_NO_SYSTEMD=2, we will proceed but skip all systemd related commands."
       ;;
     *)
       error "This script only supports Linux distributions with systemd."
-      note "Specify FORCE_NO_SYSTEMD=1 to disable this check and force this script running as systemd is detected."
-      note "Specify FORCE_NO_SYSTEMD=2 to disable this check along with all systemd related commands."
+      note "Specify FORCE_NO_SYSTEMD=1 to disable this check and force this script to run as if systemd exists."
+      note "Specify FORCE_NO_SYSTEMD=2 to disable this check and skip all systemd related commands."
       ;;
   esac
 }
@@ -571,7 +596,7 @@ parse_arguments() {
     case "$1" in
       '--remove')
         if [[ -n "$OPERATION" && "$OPERATION" != 'remove' ]]; then
-          show_argument_error_and_exit "Option '--remove' is conflicted with other options."
+          show_argument_error_and_exit "Option '--remove' is in conflict with other options."
         fi
         OPERATION='remove'
         ;;
@@ -582,12 +607,12 @@ parse_arguments() {
         fi
         shift
         if ! has_prefix "$VERSION" 'v'; then
-          show_argument_error_and_exit "Version numbers should begin with 'v' (such like 'v2.0.0'), got '$VERSION'"
+          show_argument_error_and_exit "Version numbers should begin with 'v' (such as 'v2.0.0'), got '$VERSION'"
         fi
         ;;
       '-c' | '--check')
         if [[ -n "$OPERATION" && "$OPERATION" != 'check' ]]; then
-          show_argument_error_and_exit "Option '-c' or '--check' is conflicted with other option."
+          show_argument_error_and_exit "Option '-c' or '--check' is in conflict with other options."
         fi
         OPERATION='check_update'
         ;;
@@ -619,15 +644,15 @@ parse_arguments() {
   case "$OPERATION" in
     'install')
       if [[ -n "$VERSION" && -n "$LOCAL_FILE" ]]; then
-        show_argument_error_and_exit '--version and --local cannot be specified together.'
+        show_argument_error_and_exit '--version and --local cannot be used together.'
       fi
       ;;
     *)
       if [[ -n "$VERSION" ]]; then
-        show_argument_error_and_exit "--version is only avaiable when install."
+        show_argument_error_and_exit "--version is only valid for install operation."
       fi
       if [[ -n "$LOCAL_FILE" ]]; then
-        show_argument_error_and_exit "--local is only avaiable when install."
+        show_argument_error_and_exit "--local is only valid for install operation."
       fi
       ;;
   esac
@@ -778,7 +803,7 @@ get_latest_version() {
 
   local _tmpfile=$(mktemp)
   if ! curl -sS -H 'Accept: application/vnd.github.v3+json' "$API_BASE_URL/releases/latest" -o "$_tmpfile"; then
-    error "Failed to get latest release, please check your network."
+    error "Failed to get the latest version from GitHub API, please check your network and try again."
     exit 11
   fi
 
@@ -800,7 +825,7 @@ download_hysteria() {
   local _download_url="$REPO_URL/releases/download/app/$_version/hysteria-$OPERATING_SYSTEM-$ARCHITECTURE"
   echo "Downloading hysteria binary: $_download_url ..."
   if ! curl -R -H 'Cache-Control: no-cache' "$_download_url" -o "$_destination"; then
-    error "Download failed! Please check your network and try again."
+    error "Download failed, please check your network and try again."
     return 11
   fi
   return 0
@@ -926,18 +951,18 @@ perform_install() {
 
   if [[ "x$FORCE" == "x1" ]]; then
     if [[ -z "$_is_update_required" ]]; then
-      note "Option '--force' is specified, re-install even if installed version is the latest."
+      note "Option '--force' detected, re-install even if installed version is the latest."
     fi
     _is_update_required=1
   fi
 
   if [[ -z "$_is_update_required" ]]; then
-    echo "$(tgreen)Installed version is up-to-dated, there is nothing to do.$(treset)"
+    echo "$(tgreen)Installed version is up-to-date, there is nothing to do.$(treset)"
     return
   fi
 
   if is_hysteria1_version "$VERSION"; then
-    error "This script can be only used to install the Hysteria 2"
+    error "This script can only install Hysteria 2."
     exit 95
   fi
 
@@ -1015,7 +1040,7 @@ perform_check_update() {
     echo
   else
     echo
-    echo "$(tgreen)Installed version is up-to-dated.$(treset)"
+    echo "$(tgreen)Installed version is up-to-date.$(treset)"
     echo
   fi
 }
