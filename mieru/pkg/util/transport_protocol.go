@@ -15,7 +15,7 @@
 
 package util
 
-type TransportProtocol int
+type TransportProtocol uint8
 
 const (
 	UnknownTransport TransportProtocol = iota
