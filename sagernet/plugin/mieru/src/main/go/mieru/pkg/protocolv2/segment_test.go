@@ -22,33 +22,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/enfein/mieru/pkg/netutil"
-	"github.com/enfein/mieru/pkg/rng"
+	"github.com/enfein/mieru/pkg/util"
 )
 
 func TestMaxFragmentSize(t *testing.T) {
 	testcases := []struct {
 		mtu       int
-		ipVersion netutil.IPVersion
-		transport netutil.TransportProtocol
+		ipVersion util.IPVersion
+		transport util.TransportProtocol
 		want      int
 	}{
 		{
 			1500,
-			netutil.IPVersion6,
-			netutil.TCPTransport,
+			util.IPVersion6,
+			util.TCPTransport,
 			MaxPDU,
 		},
 		{
 			1500,
-			netutil.IPVersion4,
-			netutil.UDPTransport,
+			util.IPVersion4,
+			util.UDPTransport,
 			1472 - udpOverhead,
 		},
 		{
 			1500,
-			netutil.IPVersionUnknown,
-			netutil.UnknownTransport,
+			util.IPVersionUnknown,
+			util.UnknownTransport,
 			1440 - udpOverhead,
 		},
 	}
@@ -63,32 +62,32 @@ func TestMaxFragmentSize(t *testing.T) {
 func TestMaxPaddingSize(t *testing.T) {
 	testcases := []struct {
 		mtu                 int
-		ipVersion           netutil.IPVersion
-		transport           netutil.TransportProtocol
+		ipVersion           util.IPVersion
+		transport           util.TransportProtocol
 		fragmentSize        int
 		existingPaddingSize int
 		want                int
 	}{
 		{
 			1500,
-			netutil.IPVersion6,
-			netutil.TCPTransport,
+			util.IPVersion6,
+			util.TCPTransport,
 			MaxPDU,
 			255,
 			255,
 		},
 		{
 			1500,
-			netutil.IPVersion4,
-			netutil.UDPTransport,
+			util.IPVersion4,
+			util.UDPTransport,
 			1472 - udpOverhead - 16,
 			12,
 			4,
 		},
 		{
 			1500,
-			netutil.IPVersionUnknown,
-			netutil.UnknownTransport,
+			util.IPVersionUnknown,
+			util.UnknownTransport,
 			0,
 			255,
 			255,
@@ -133,6 +132,9 @@ func TestSegmentTree(t *testing.T) {
 	if ok := st.Insert(seg); ok {
 		t.Fatalf("ReplaceOrInsert() is not failing when tree is full")
 	}
+	if ready := st.IsReadReady(); !ready {
+		t.Fatalf("IsReadReady() returned false")
+	}
 	minSeq, err := st.MinSeq()
 	if err != nil {
 		t.Fatalf("MinSeq() failed: %v", err)
@@ -175,8 +177,7 @@ func TestSegmentTree(t *testing.T) {
 	}
 }
 
-func TestSegmentTreeBlocking(t *testing.T) {
-	rng.InitSeed()
+func TestSegmentTreeConcurrent(t *testing.T) {
 	sessionID := uint32(mrand.Int31())
 	st := newSegmentTree(1)
 	var wg sync.WaitGroup
@@ -193,9 +194,14 @@ func TestSegmentTreeBlocking(t *testing.T) {
 				},
 				payload: []byte{0},
 			}
-			s := mrand.Intn(10)
-			time.Sleep(time.Duration(s) * time.Millisecond)
-			st.InsertBlocking(seg)
+			for {
+				ok := st.Insert(seg)
+				if ok {
+					break
+				}
+				time.Sleep(time.Duration(mrand.Intn(10)) * time.Millisecond)
+			}
+
 		}
 		wg.Done()
 	}()
@@ -203,10 +209,16 @@ func TestSegmentTreeBlocking(t *testing.T) {
 	// Consumer.
 	go func() {
 		var i uint32 = 0
+		var seg *segment
+		var ok bool
 		for ; i < 100; i++ {
-			s := mrand.Intn(10)
-			time.Sleep(time.Duration(s) * time.Millisecond)
-			seg := st.DeleteMinBlocking()
+			for {
+				seg, ok = st.DeleteMin()
+				if ok {
+					break
+				}
+				time.Sleep(time.Duration(mrand.Intn(10)) * time.Millisecond)
+			}
 			id, err := seg.SessionID()
 			if err != nil {
 				t.Errorf("SessionID() failed: %v", err)

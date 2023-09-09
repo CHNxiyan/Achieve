@@ -25,16 +25,16 @@ import (
 
 	"github.com/enfein/mieru/pkg/cipher"
 	"github.com/enfein/mieru/pkg/log"
-	"github.com/enfein/mieru/pkg/netutil"
 	"github.com/enfein/mieru/pkg/replay"
 	"github.com/enfein/mieru/pkg/rng"
 	"github.com/enfein/mieru/pkg/stderror"
+	"github.com/enfein/mieru/pkg/util"
 )
 
 type TCPUnderlay struct {
 	baseUnderlay
 	conn      *net.TCPConn
-	ipVersion netutil.IPVersion
+	ipVersion util.IPVersion
 
 	send cipher.BlockCipher
 	recv cipher.BlockCipher
@@ -107,18 +107,18 @@ func (t *TCPUnderlay) Addr() net.Addr {
 	return t.LocalAddr()
 }
 
-func (t *TCPUnderlay) IPVersion() netutil.IPVersion {
+func (t *TCPUnderlay) IPVersion() util.IPVersion {
 	if t.conn == nil {
-		return netutil.IPVersionUnknown
+		return util.IPVersionUnknown
 	}
-	if t.ipVersion == netutil.IPVersionUnknown {
-		t.ipVersion = netutil.GetIPVersion(t.conn.LocalAddr().String())
+	if t.ipVersion == util.IPVersionUnknown {
+		t.ipVersion = util.GetIPVersion(t.conn.LocalAddr().String())
 	}
 	return t.ipVersion
 }
 
-func (t *TCPUnderlay) TransportProtocol() netutil.TransportProtocol {
-	return netutil.TCPTransport
+func (t *TCPUnderlay) TransportProtocol() util.TransportProtocol {
+	return util.TCPTransport
 }
 
 func (t *TCPUnderlay) LocalAddr() net.Addr {
@@ -139,13 +139,13 @@ func (t *TCPUnderlay) AddSession(s *Session, remoteAddr net.Addr) error {
 
 	s.wg.Add(2)
 	go func() {
-		if err := s.runInputLoop(context.Background()); err != nil {
+		if err := s.runInputLoop(context.Background()); err != nil && !stderror.IsEOF(err) && !stderror.IsClosed(err) {
 			log.Debugf("%v runInputLoop(): %v", s, err)
 		}
 		s.wg.Done()
 	}()
 	go func() {
-		if err := s.runOutputLoop(context.Background()); err != nil {
+		if err := s.runOutputLoop(context.Background()); err != nil && !stderror.IsEOF(err) && !stderror.IsClosed(err) {
 			log.Debugf("%v runOutputLoop(): %v", s, err)
 		}
 		s.wg.Done()
@@ -155,7 +155,12 @@ func (t *TCPUnderlay) AddSession(s *Session, remoteAddr net.Addr) error {
 
 func (t *TCPUnderlay) RemoveSession(s *Session) error {
 	err := t.baseUnderlay.RemoveSession(s)
-	if len(t.baseUnderlay.sessionMap) == 0 {
+	size := 0
+	t.sessionMap.Range(func(k, v any) bool {
+		size += 1
+		return false
+	})
+	if size == 0 {
 		t.Close()
 	}
 	return err
@@ -200,14 +205,12 @@ func (t *TCPUnderlay) RunEventLoop(ctx context.Context) error {
 			}
 		} else if isDataAckProtocol(seg.metadata.Protocol()) {
 			das, _ := toDataAckStruct(seg.metadata)
-			t.sessionLock.Lock()
-			session, ok := t.sessionMap[das.sessionID]
-			t.sessionLock.Unlock()
+			session, ok := t.sessionMap.Load(das.sessionID)
 			if !ok {
 				log.Debugf("Session %d is not registered to %v", das.sessionID, t)
 				continue
 			}
-			session.recvChan <- seg
+			session.(*Session).recvChan <- seg
 		}
 		// Ignore other protocols.
 	}
@@ -224,9 +227,7 @@ func (t *TCPUnderlay) onOpenSessionRequest(seg *segment) error {
 		// 0 is reserved and can't be used.
 		return fmt.Errorf("reserved session ID %d is used", sessionID)
 	}
-	t.sessionLock.Lock()
-	_, found := t.sessionMap[sessionID]
-	t.sessionLock.Unlock()
+	_, found := t.sessionMap.Load(sessionID)
 	if found {
 		return fmt.Errorf("session ID %d is already used", sessionID)
 	}
@@ -243,28 +244,25 @@ func (t *TCPUnderlay) onOpenSessionResponse(seg *segment) error {
 	}
 
 	sessionID := seg.metadata.(*sessionStruct).sessionID
-	t.sessionLock.Lock()
-	session, found := t.sessionMap[sessionID]
-	t.sessionLock.Unlock()
+	session, found := t.sessionMap.Load(sessionID)
 	if !found {
 		return fmt.Errorf("session ID %d is not found", sessionID)
 	}
-	session.recvChan <- seg
+	session.(*Session).recvChan <- seg
 	return nil
 }
 
 func (t *TCPUnderlay) onCloseSession(seg *segment) error {
 	ss := seg.metadata.(*sessionStruct)
 	sessionID := ss.sessionID
-	t.sessionLock.Lock()
-	session, found := t.sessionMap[sessionID]
-	t.sessionLock.Unlock()
+	session, found := t.sessionMap.Load(sessionID)
 	if !found {
 		return fmt.Errorf("session ID %d is not found", sessionID)
 	}
-	session.recvChan <- seg
-	session.wg.Wait()
-	t.RemoveSession(session)
+	s := session.(*Session)
+	s.recvChan <- seg
+	s.wg.Wait()
+	t.RemoveSession(s)
 	return nil
 }
 
@@ -316,13 +314,13 @@ func (t *TCPUnderlay) readOneSegment() (*segment, error) {
 
 	// Read payload and construct segment.
 	p := decryptedMeta[0]
-	if isSessionProtocol(p) {
+	if isSessionProtocol(protocolType(p)) {
 		ss := &sessionStruct{}
 		if err := ss.Unmarshal(decryptedMeta); err != nil {
 			return nil, fmt.Errorf("Unmarshal() to sessionStruct failed: %w", err)
 		}
 		return t.readSessionSegment(ss)
-	} else if isDataAckProtocol(p) {
+	} else if isDataAckProtocol(protocolType(p)) {
 		das := &dataAckStruct{}
 		if err := das.Unmarshal(decryptedMeta); err != nil {
 			return nil, fmt.Errorf("Unmarshal() to dataAckStruct failed: %w", err)
@@ -358,8 +356,9 @@ func (t *TCPUnderlay) readSessionSegment(ss *sessionStruct) (*segment, error) {
 	}
 
 	return &segment{
-		metadata: ss,
-		payload:  decryptedPayload,
+		metadata:  ss,
+		payload:   decryptedPayload,
+		transport: util.TCPTransport,
 	}, nil
 }
 
@@ -394,8 +393,9 @@ func (t *TCPUnderlay) readDataAckSegment(das *dataAckStruct) (*segment, error) {
 	}
 
 	return &segment{
-		metadata: das,
-		payload:  decryptedPayload,
+		metadata:  das,
+		payload:   decryptedPayload,
+		transport: util.TCPTransport,
 	}, nil
 }
 

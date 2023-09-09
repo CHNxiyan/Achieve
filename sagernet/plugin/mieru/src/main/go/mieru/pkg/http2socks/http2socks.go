@@ -25,8 +25,8 @@ import (
 
 	"github.com/enfein/mieru/pkg/log"
 	"github.com/enfein/mieru/pkg/metrics"
-	"github.com/enfein/mieru/pkg/netutil"
 	"github.com/enfein/mieru/pkg/socks5client"
+	"github.com/enfein/mieru/pkg/util"
 )
 
 var (
@@ -36,6 +36,18 @@ var (
 	HTTPConnErrors   = metrics.RegisterMetric(HTTPMetricGroupName, "ConnErrors")
 	HTTPSchemeErrors = metrics.RegisterMetric(HTTPMetricGroupName, "SchemeErrors")
 )
+
+// hopByHopHeaders are HTTP headers that need to be removed by intermediaries.
+//
+// See RFC 9110 for details.
+var hopByHopHeaders = []string{
+	"Connection",
+	"Proxy-Connection",
+	"Keep-Alive",
+	"TE",
+	"Transfer-Encoding",
+	"Upgrade",
+}
 
 type Proxy struct {
 	ProxyURI string
@@ -102,14 +114,14 @@ func (p *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		}
 
 		// Dial to socks server.
-		socksConn, err := dialFunc("tcp", netutil.MaybeDecorateIPv6(req.URL.Hostname())+":"+port)
+		socksConn, err := dialFunc("tcp", util.MaybeDecorateIPv6(req.URL.Hostname())+":"+port)
 		if err != nil {
 			HTTPConnErrors.Add(1)
 			log.Debugf("HTTP proxy dial to socks5 server failed: %v", err)
 			return
 		}
 		httpConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
-		netutil.BidiCopy(httpConn, socksConn, true)
+		util.BidiCopy(httpConn, socksConn, true)
 	} else {
 		// HTTP
 		tr := &http.Transport{
@@ -121,8 +133,11 @@ func (p *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 				return nil
 			},
 		}
+
 		outReq := *req
 		outReq.RequestURI = ""
+		deleteHopByHopHeaders(outReq.Header)
+
 		resp, err := client.Do(&outReq)
 		if err != nil {
 			HTTPConnErrors.Add(1)
@@ -130,6 +145,10 @@ func (p *Proxy) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 			return
 		}
 		defer resp.Body.Close()
+
+		deleteHopByHopHeaders(resp.Header)
+		copyHeaders(res.Header(), resp.Header)
+		res.WriteHeader(resp.StatusCode)
 		io.Copy(res, resp.Body)
 	}
 }
@@ -143,5 +162,19 @@ func TransportProxyFunc(proxy string) func(*http.Request) (*url.URL, error) {
 	}
 	return func(r *http.Request) (*url.URL, error) {
 		return url.Parse(proxy)
+	}
+}
+
+func copyHeaders(dst, src http.Header) {
+	for k, vv := range src {
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
+	}
+}
+
+func deleteHopByHopHeaders(header http.Header) {
+	for _, h := range hopByHopHeaders {
+		header.Del(h)
 	}
 }

@@ -20,7 +20,6 @@ import (
 	mrand "math/rand"
 	"net"
 	"regexp"
-	"time"
 )
 
 // TestHelperGenRot13Input generates valid rotate-13 input.
@@ -28,7 +27,6 @@ func TestHelperGenRot13Input(size int) []byte {
 	if size <= 0 {
 		return []byte{}
 	}
-	mrand.Seed(time.Now().UnixNano())
 	data := make([]byte, size)
 	for i := 0; i < size; i++ {
 		p := mrand.Float32()
@@ -48,7 +46,7 @@ func TestHelperRot13(in []byte) ([]byte, error) {
 	}
 	match, err := regexp.MatchString("[A-Za-z]+", string(in))
 	if err != nil {
-		return nil, fmt.Errorf("regexp.MatchString() failed: %v", err)
+		return nil, fmt.Errorf("regexp.MatchString() failed: %w", err)
 	}
 	if !match {
 		return nil, fmt.Errorf("input format is invalid")
@@ -74,22 +72,22 @@ func TestHelperServeConn(conn net.Conn) error {
 	for {
 		n, err := conn.Read(buf)
 		if err != nil {
-			return fmt.Errorf("Read() failed: %v", err)
+			return fmt.Errorf("Read() failed: %w", err)
 		}
 		if n == 0 {
 			continue
 		}
 		out, err := TestHelperRot13(buf[:n])
 		if err != nil {
-			return fmt.Errorf("rot13() failed: %v", err)
+			return fmt.Errorf("rot13() failed: %w", err)
 		}
 		if _, err = conn.Write(out); err != nil {
-			return fmt.Errorf("Write() failed: %v", err)
+			return fmt.Errorf("Write() failed: %w", err)
 		}
 	}
 }
 
-// TestHelperConnHandler implements netutil.ConnHandler interface.
+// TestHelperConnHandler implements util.ConnHandler interface.
 type TestHelperConnHandler struct{}
 
 func (h TestHelperConnHandler) Take(conn net.Conn) (closed bool, err error) {

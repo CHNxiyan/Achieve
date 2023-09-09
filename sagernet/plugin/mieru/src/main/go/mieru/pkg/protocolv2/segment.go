@@ -23,8 +23,8 @@ import (
 	"github.com/enfein/mieru/pkg/cipher"
 	"github.com/enfein/mieru/pkg/log"
 	"github.com/enfein/mieru/pkg/mathext"
-	"github.com/enfein/mieru/pkg/netutil"
 	"github.com/enfein/mieru/pkg/stderror"
+	"github.com/enfein/mieru/pkg/util"
 	"github.com/google/btree"
 )
 
@@ -33,26 +33,29 @@ const (
 	MaxPDU = 16 * 1024
 
 	// Maxinum number of transmission before marking the session as dead.
-	txCountLimit = 10
+	txCountLimit = 20
 
 	// Number of fast ack received before retransmission.
 	fastAckLimit = 3
+
+	// Format to print segment TX time.
+	segmentTimeFormat = "15:04:05.999"
 )
 
 // MaxFragmentSize returns the maximum payload size in a fragment.
-func MaxFragmentSize(mtu int, ipVersion netutil.IPVersion, transport netutil.TransportProtocol) int {
-	if transport == netutil.TCPTransport {
+func MaxFragmentSize(mtu int, ipVersion util.IPVersion, transport util.TransportProtocol) int {
+	if transport == util.TCPTransport {
 		// No fragment needed.
 		return MaxPDU
 	}
 
 	res := mtu - udpOverhead
-	if ipVersion == netutil.IPVersion4 {
+	if ipVersion == util.IPVersion4 {
 		res -= 20
 	} else {
 		res -= 40
 	}
-	if transport == netutil.UDPTransport {
+	if transport == util.UDPTransport {
 		res -= 8
 	} else {
 		res -= 20
@@ -61,19 +64,19 @@ func MaxFragmentSize(mtu int, ipVersion netutil.IPVersion, transport netutil.Tra
 }
 
 // MaxPaddingSize returns the maximum padding size of a segment.
-func MaxPaddingSize(mtu int, ipVersion netutil.IPVersion, transport netutil.TransportProtocol, fragmentSize int, existingPaddingSize int) int {
-	if transport == netutil.TCPTransport {
+func MaxPaddingSize(mtu int, ipVersion util.IPVersion, transport util.TransportProtocol, fragmentSize int, existingPaddingSize int) int {
+	if transport == util.TCPTransport {
 		// No limit.
 		return 255
 	}
 
 	res := mtu - fragmentSize - udpOverhead
-	if ipVersion == netutil.IPVersion4 {
+	if ipVersion == util.IPVersion4 {
 		res -= 20
 	} else {
 		res -= 40
 	}
-	if transport == netutil.UDPTransport {
+	if transport == util.UDPTransport {
 		res -= 8
 	} else {
 		res -= 20
@@ -87,16 +90,17 @@ func MaxPaddingSize(mtu int, ipVersion netutil.IPVersion, transport netutil.Tran
 // segment contains metadata and actual payload.
 type segment struct {
 	metadata  metadata
-	payload   []byte             // also can be a fragment
-	txCount   byte               // number of transmission times
-	fastAck   byte               // accumulated out of order ACK
-	txTime    time.Time          // most recent tx time
-	txTimeout time.Duration      // need to receive ACK within this duration
-	block     cipher.BlockCipher // cipher block to encrypt or decrypt the payload
+	payload   []byte                 // also can be a fragment
+	transport util.TransportProtocol // transport protocol
+	txCount   byte                   // number of transmission times
+	fastAck   byte                   // accumulated out of order ACK
+	txTime    time.Time              // most recent tx time
+	txTimeout time.Duration          // need to receive ACK within this duration
+	block     cipher.BlockCipher     // cipher block to encrypt or decrypt the payload
 }
 
 // Protocol returns the protocol of the segment.
-func (s *segment) Protocol() byte {
+func (s *segment) Protocol() protocolType {
 	return s.metadata.Protocol()
 }
 
@@ -127,12 +131,12 @@ func (s *segment) Seq() (uint32, error) {
 }
 
 // Fragment returns the fragment number of the segment.
-func (s *segment) Fragment() (uint8, error) {
+func (s *segment) Fragment() uint8 {
 	das, ok := s.metadata.(*dataAckStruct)
 	if !ok {
-		return 0, nil
+		return 0
 	}
-	return das.fragment, nil
+	return das.fragment
 }
 
 // Less tests whether the current item is less than the given argument.
@@ -149,6 +153,9 @@ func (s *segment) Less(than *segment) bool {
 }
 
 func (s *segment) String() string {
+	if s.transport == util.UDPTransport && (!util.IsZeroTime(s.txTime) || s.txTimeout != 0) {
+		return fmt.Sprintf("segment{metadata=%v, txCount=%v, fastAck=%v, txTime=%v, txTimeout=%v}", s.metadata, s.txCount, s.fastAck, s.txTime.Format(segmentTimeFormat), s.txTimeout)
+	}
 	return fmt.Sprintf("segment{metadata=%v}", s.metadata)
 }
 
@@ -162,11 +169,12 @@ type segmentIterator func(*segment) bool
 
 // segmentTree is a B-tree to store multiple Segment in order.
 type segmentTree struct {
-	tr    *btree.BTreeG[*segment]
-	cap   int
-	mu    sync.Mutex
-	full  sync.Cond
-	empty sync.Cond
+	tr     *btree.BTreeG[*segment]
+	cap    int
+	mu     sync.Mutex
+	full   sync.Cond
+	empty  sync.Cond
+	series int
 }
 
 func newSegmentTree(capacity int) *segmentTree {
@@ -197,10 +205,16 @@ func (t *segmentTree) Insert(seg *segment) (ok bool) {
 	if t.tr.Len() >= t.cap {
 		return false
 	}
+	if seg.Fragment() == 0 {
+		t.series++
+	}
 	prev, replace := t.tr.ReplaceOrInsert(seg)
 	if replace {
 		if log.IsLevelEnabled(log.TraceLevel) {
 			log.Tracef("%v is replaced by %v", seg, prev)
+		}
+		if prev.Fragment() == 0 {
+			t.series--
 		}
 	} else {
 		t.empty.Broadcast()
@@ -222,10 +236,16 @@ func (t *segmentTree) InsertBlocking(seg *segment) {
 	for t.tr.Len() >= t.cap {
 		t.full.Wait()
 	}
+	if seg.Fragment() == 0 {
+		t.series++
+	}
 	prev, replace := t.tr.ReplaceOrInsert(seg)
 	if replace {
 		if log.IsLevelEnabled(log.TraceLevel) {
 			log.Tracef("%v is replaced by %v", seg, prev)
+		}
+		if prev.Fragment() == 0 {
+			t.series--
 		}
 	} else {
 		t.empty.Broadcast()
@@ -248,27 +268,11 @@ func (t *segmentTree) DeleteMin() (*segment, bool) {
 	if seg == nil {
 		panic("segmentTree.DeleteMin() return nil")
 	}
+	if seg.Fragment() == 0 {
+		t.series--
+	}
 	t.full.Broadcast()
 	return seg, true
-}
-
-// DeleteMinBlocking is the same as DeleteMin, but blocks when the tree is empty.
-func (t *segmentTree) DeleteMinBlocking() *segment {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	for t.tr.Len() == 0 {
-		t.empty.Wait()
-	}
-	seg, ok := t.tr.DeleteMin()
-	if !ok {
-		panic("segmentTree.DeleteMin() is called when the tree is empty")
-	}
-	if seg == nil {
-		panic("segmentTree.DeleteMin() return nil")
-	}
-	t.full.Broadcast()
-	return seg
 }
 
 // DeleteMinIf removes the smallest item from the tree if
@@ -297,6 +301,9 @@ func (t *segmentTree) DeleteMinIf(si segmentIterator) (*segment, bool) {
 		if seg == nil {
 			panic("segmentTree.DeleteMin() return nil")
 		}
+		if seg.Fragment() == 0 {
+			t.series--
+		}
 		t.full.Broadcast()
 	}
 	return seg, delete
@@ -308,6 +315,11 @@ func (t *segmentTree) Ascend(si segmentIterator) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.tr.Ascend(btree.ItemIteratorG[*segment](si))
+}
+
+// IsReadReady returns true if session is ready to read segments.
+func (t *segmentTree) IsReadReady() bool {
+	return t.series > 0
 }
 
 // MinSeq return the minimum sequence number in the SegmentTree.

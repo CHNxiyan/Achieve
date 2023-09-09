@@ -27,6 +27,7 @@ import (
 	"github.com/enfein/mieru/pkg/log"
 	"github.com/enfein/mieru/pkg/socks5client"
 	"github.com/enfein/mieru/pkg/testtool"
+	"github.com/enfein/mieru/pkg/util"
 )
 
 var (
@@ -40,11 +41,8 @@ var (
 	maxPayload     = flag.Int("max_payload", 1400, "Maxinum number of bytes in a UDP packet.")
 )
 
-var zeroTime = time.Time{}
-
 func init() {
 	log.SetFormatter(&log.DaemonFormatter{})
-	mrand.Seed(time.Now().UnixNano())
 }
 
 func main() {
@@ -103,7 +101,7 @@ func DoRequestWithExistingConn(conn *net.UDPConn, proxyAddr, dstAddr *net.UDPAdd
 	payload := testtool.TestHelperGenRot13Input(payloadSize)
 
 	conn.SetReadDeadline(time.Now().Add(1 * time.Second))
-	defer conn.SetReadDeadline(zeroTime)
+	defer conn.SetReadDeadline(util.ZeroTime())
 	resp, err := socks5client.SendUDP(conn, proxyAddr, dstAddr, payload)
 	if err != nil {
 		log.Fatalf("socks5client.SendUDP() failed: %v", err)

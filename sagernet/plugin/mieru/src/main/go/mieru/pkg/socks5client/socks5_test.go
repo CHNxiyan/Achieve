@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/enfein/mieru/pkg/netutil"
 	"github.com/enfein/mieru/pkg/socks5"
+	"github.com/enfein/mieru/pkg/util"
 )
 
 var httpTestServer = func() *http.Server {
-	httpTestPort, err := netutil.UnusedTCPPort()
+	httpTestPort, err := util.UnusedTCPPort()
 	if err != nil {
 		panic(err)
 	}
@@ -46,19 +46,8 @@ var httpTestServer = func() *http.Server {
 	return s
 }()
 
-func newTestSocksServer(port int, withAuth bool) {
-	authenticator := socks5.Authenticator(socks5.NoAuthAuthenticator{})
-	if withAuth {
-		authenticator = socks5.UserPassAuthenticator{
-			Credentials: socks5.StaticCredentials{
-				"test_user": "test_pass",
-			},
-		}
-	}
+func newTestSocksServer(port int) {
 	conf := &socks5.Config{
-		AuthMethods: []socks5.Authenticator{
-			authenticator,
-		},
 		AllowLocalDestination: true,
 	}
 	srv, err := socks5.New(conf)
@@ -90,35 +79,12 @@ func tcpReady(port int, timeout time.Duration) {
 }
 
 func TestSocks5Anonymous(t *testing.T) {
-	port, err := netutil.UnusedTCPPort()
+	port, err := util.UnusedTCPPort()
 	if err != nil {
-		t.Fatalf("netutil.UnusedTCPPort() failed: %v", err)
+		t.Fatalf("util.UnusedTCPPort() failed: %v", err)
 	}
-	newTestSocksServer(port, false)
+	newTestSocksServer(port)
 	dialSocksProxy := Dial(fmt.Sprintf("socks5://127.0.0.1:%d?timeout=5s", port), ConnectCmd)
-	tr := &http.Transport{Dial: dialSocksProxy}
-	httpClient := &http.Client{Transport: tr}
-	resp, err := httpClient.Get(fmt.Sprintf("http://localhost" + httpTestServer.Addr))
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(err)
-	}
-	if string(respBody) != "hello" {
-		t.Fatalf("expect response hello but got %s", respBody)
-	}
-}
-
-func TestSocks5Auth(t *testing.T) {
-	port, err := netutil.UnusedTCPPort()
-	if err != nil {
-		t.Fatalf("netutil.UnusedTCPPort() failed: %v", err)
-	}
-	newTestSocksServer(port, true)
-	dialSocksProxy := Dial(fmt.Sprintf("socks5://test_user:test_pass@127.0.0.1:%d?timeout=5s", port), ConnectCmd)
 	tr := &http.Transport{Dial: dialSocksProxy}
 	httpClient := &http.Client{Transport: tr}
 	resp, err := httpClient.Get(fmt.Sprintf("http://localhost" + httpTestServer.Addr))

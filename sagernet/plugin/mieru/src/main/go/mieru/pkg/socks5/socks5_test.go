@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/enfein/mieru/pkg/netutil"
+	"github.com/enfein/mieru/pkg/util"
 )
 
 func TestSocks5Connect(t *testing.T) {
@@ -44,12 +44,7 @@ func TestSocks5Connect(t *testing.T) {
 	lAddr := l.Addr().(*net.TCPAddr)
 
 	// Create a socks server.
-	creds := StaticCredentials{
-		"foo": "bar",
-	}
-	authenticator := UserPassAuthenticator{Credentials: creds}
 	conf := &Config{
-		AuthMethods:           []Authenticator{authenticator},
 		AllowLocalDestination: true,
 	}
 	serv, err := New(conf)
@@ -58,9 +53,9 @@ func TestSocks5Connect(t *testing.T) {
 	}
 
 	// Socks server start listening.
-	serverPort, err := netutil.UnusedTCPPort()
+	serverPort, err := util.UnusedTCPPort()
 	if err != nil {
-		t.Fatalf("netutil.UnusedTCPPort() failed: %v", err)
+		t.Fatalf("util.UnusedTCPPort() failed: %v", err)
 	}
 	go func() {
 		if err := serv.ListenAndServe("tcp", "127.0.0.1:"+strconv.Itoa(serverPort)); err != nil {
@@ -78,8 +73,7 @@ func TestSocks5Connect(t *testing.T) {
 
 	req := bytes.NewBuffer(nil)
 	req.Write([]byte{5})
-	req.Write([]byte{2, NoAuth, UserPassAuth})
-	req.Write([]byte{1, 3, 'f', 'o', 'o', 3, 'b', 'a', 'r'})
+	req.Write([]byte{1, NoAuth})
 	req.Write([]byte{5, 1, 0, 1, 127, 0, 0, 1})
 	port := []byte{0, 0}
 	binary.BigEndian.PutUint16(port, uint16(lAddr.Port))
@@ -93,8 +87,8 @@ func TestSocks5Connect(t *testing.T) {
 
 	// Verify response from socks server.
 	want := []byte{
-		socks5Version, UserPassAuth, 1, authSuccess,
-		socks5Version, 0, 0, 1,
+		Socks5Version, NoAuth,
+		Socks5Version, 0, 0, 1,
 		127, 0, 0, 1,
 		0, 0,
 		'p', 'o', 'n', 'g',
@@ -106,8 +100,8 @@ func TestSocks5Connect(t *testing.T) {
 	}
 
 	// Ignore the port number before compare the result.
-	out[12] = 0
-	out[13] = 0
+	out[10] = 0
+	out[11] = 0
 
 	if !bytes.Equal(out, want) {
 		t.Fatalf("got %v, want %v", out, want)
@@ -159,12 +153,7 @@ func TestSocks5UDPAssociation(t *testing.T) {
 	}()
 
 	// Create a socks server.
-	creds := StaticCredentials{
-		"foo": "bar",
-	}
-	authenticator := UserPassAuthenticator{Credentials: creds}
 	conf := &Config{
-		AuthMethods:           []Authenticator{authenticator},
 		AllowLocalDestination: true,
 	}
 	serv, err := New(conf)
@@ -173,9 +162,9 @@ func TestSocks5UDPAssociation(t *testing.T) {
 	}
 
 	// Socks server start listening.
-	serverPort, err := netutil.UnusedTCPPort()
+	serverPort, err := util.UnusedTCPPort()
 	if err != nil {
-		t.Fatalf("netutil.UnusedTCPPort() failed: %v", err)
+		t.Fatalf("util.UnusedTCPPort() failed: %v", err)
 	}
 	go func() {
 		if err := serv.ListenAndServe("tcp", "127.0.0.1:"+strconv.Itoa(serverPort)); err != nil {
@@ -193,8 +182,7 @@ func TestSocks5UDPAssociation(t *testing.T) {
 
 	req := bytes.NewBuffer(nil)
 	req.Write([]byte{5})
-	req.Write([]byte{2, NoAuth, UserPassAuth})
-	req.Write([]byte{1, 3, 'f', 'o', 'o', 3, 'b', 'a', 'r'})
+	req.Write([]byte{1, NoAuth})
 	req.Write([]byte{5, 3, 0, 1, 127, 0, 0, 1, 0, 0})
 
 	// Send initial UDP association request.
@@ -204,8 +192,8 @@ func TestSocks5UDPAssociation(t *testing.T) {
 
 	// Verify response from socks server.
 	want := []byte{
-		socks5Version, UserPassAuth, 1, authSuccess,
-		socks5Version, 0, 0, 1,
+		Socks5Version, NoAuth,
+		Socks5Version, 0, 0, 1,
 		0, 0, 0, 0,
 		0, 0,
 	}
@@ -216,9 +204,9 @@ func TestSocks5UDPAssociation(t *testing.T) {
 	}
 
 	// Ignore the port number before compare the result.
-	t.Logf("socks5 server created UDP listener on port %d", int(out[12])<<8+int(out[13]))
-	out[12] = 0
-	out[13] = 0
+	t.Logf("socks5 server created UDP listener on port %d", int(out[10])<<8+int(out[11]))
+	out[10] = 0
+	out[11] = 0
 
 	if !bytes.Equal(out, want) {
 		t.Fatalf("got %v, want %v", out, want)
@@ -262,9 +250,9 @@ func TestServerGroup(t *testing.T) {
 		t.Fatalf("New() failed: %v", err)
 	}
 	g := NewGroup()
-	port, err := netutil.UnusedUDPPort()
+	port, err := util.UnusedUDPPort()
 	if err != nil {
-		t.Fatalf("netutil.UnusedUDPPort() failed: %v", err)
+		t.Fatalf("util.UnusedUDPPort() failed: %v", err)
 	}
 	if err := g.Add("UDP", port, s1); err != nil {
 		t.Fatalf("Add() failed: %v", err)
