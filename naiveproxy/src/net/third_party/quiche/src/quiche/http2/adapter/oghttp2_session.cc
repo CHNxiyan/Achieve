@@ -199,8 +199,14 @@ OgHttp2Session::PassthroughHeadersHandler::PassthroughHeadersHandler(
   if (session_.options_.validate_http_headers) {
     QUICHE_VLOG(2) << "instantiating regular header validator";
     validator_ = std::make_unique<HeaderValidator>();
+    if (session_.options_.validate_path) {
+      validator_->SetValidatePath();
+    }
     if (session_.options_.allow_fragment_in_path) {
       validator_->SetAllowFragmentInPath();
+    }
+    if (session_.options_.allow_different_host_and_authority) {
+      validator_->SetAllowDifferentHostAndAuthority();
     }
   } else {
     QUICHE_VLOG(2) << "instantiating noop header validator";
@@ -1839,7 +1845,6 @@ HeaderType OgHttp2Session::NextHeaderType(
     if (!current_type) {
       return HeaderType::REQUEST;
     } else {
-      QUICHE_DCHECK(current_type == HeaderType::REQUEST);
       return HeaderType::REQUEST_TRAILER;
     }
   } else if (!current_type ||

@@ -296,7 +296,7 @@ fn clear_hop_headers(headers: &mut HeaderMap<HeaderValue>) {
     extra_headers.extend(get_extra_headers(headers.get_all("Proxy-Connection")));
 
     for header in extra_headers {
-        while headers.remove(&header).is_some() {}
+        while let Some(..) = headers.remove(&header) {}
     }
 
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection
@@ -313,7 +313,7 @@ fn clear_hop_headers(headers: &mut HeaderMap<HeaderValue>) {
     ];
 
     for header in &HOP_BY_HOP_HEADERS {
-        while headers.remove(*header).is_some() {}
+        while let Some(..) = headers.remove(*header) {}
     }
 }
 

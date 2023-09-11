@@ -81,24 +81,30 @@ void ReconfigureAfterFeatureListInit() {
 
   // Does not use any of the security features yet.
   [[maybe_unused]] bool enable_brp = false;
-  [[maybe_unused]] bool enable_brp_partition_memory_reclaimer = false;
   [[maybe_unused]] bool enable_memory_tagging = false;
   [[maybe_unused]] bool split_main_partition = false;
   [[maybe_unused]] bool use_dedicated_aligned_partition = false;
   [[maybe_unused]] bool process_affected_by_brp_flag = false;
 
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
+  auto bucket_distribution = allocator_shim::BucketDistribution::kNeutral;
+  // No specified type means we are in the browser.
+  switch (base::features::kPartitionAllocBucketDistributionParam.Get()) {
+    case base::features::BucketDistributionMode::kDefault:
+      break;
+    case base::features::BucketDistributionMode::kDenser:
+      bucket_distribution = allocator_shim::BucketDistribution::kDenser;
+      break;
+  }
+
   allocator_shim::ConfigurePartitions(
       allocator_shim::EnableBrp(enable_brp),
-      allocator_shim::EnableBrpPartitionMemoryReclaimer(
-          enable_brp_partition_memory_reclaimer),
       allocator_shim::EnableMemoryTagging(enable_memory_tagging),
+      partition_alloc::TagViolationReportingMode::kDisabled,
       allocator_shim::SplitMainPartition(split_main_partition),
       allocator_shim::UseDedicatedAlignedPartition(
           use_dedicated_aligned_partition),
-      /*ref_count_size=*/0,
-      allocator_shim::AlternateBucketDistribution(
-          base::features::kPartitionAllocBucketDistributionParam.Get()));
+      /*ref_count_size=*/0, bucket_distribution);
 #endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)

@@ -36,6 +36,20 @@ posix_bypass_mmap = (is_android && current_cpu != "x86") || is_fuchsia
 
 enable_built_in_dns = use_blink
 
+# TODO(droger): Support client auth on iOS. See http://crbug.com/145954).
+#
+# Historically this was disabled because client auth required
+# platform-specific code deep in //net. Nowadays, this is abstracted away and
+# we could enable the interfaces on iOS for platform-independence. However,
+# merely enabling them changes our behavior from automatically proceeding
+# with no client certificate to raising
+# `URLRequest::Delegate::OnCertificateRequested`. Callers would need to be
+# updated to apply that behavior manually.
+#
+# If fixing this, re-enable the tests in ssl_client_socket_unittest.cc and
+# ssl_server_socket_unittest.cc which are disabled on iOS.
+enable_client_certificates = !is_ios || (use_blink && !is_cronet_build)
+
 # Unix sockets are not supported on iOS.
 enable_unix_sockets = is_posix && !is_ios
 
@@ -80,6 +94,7 @@ buildflag_header("buildflags") {
     "ENABLE_MDNS=$enable_mdns",
     "ENABLE_REPORTING=$enable_reporting",
     "ENABLE_WEBSOCKETS=$enable_websockets",
+    "ENABLE_CLIENT_CERTIFICATES=$enable_client_certificates",
     "INCLUDE_TRANSPORT_SECURITY_STATE_PRELOAD_LIST=$include_transport_security_state_preload_list",
     "USE_KERBEROS=$use_kerberos",
     "USE_EXTERNAL_GSSAPI=$use_external_gssapi",
@@ -488,7 +503,6 @@ component("net") {
     "disk_cache/blockfile/file_block.h",
     "disk_cache/blockfile/file_lock.cc",
     "disk_cache/blockfile/file_lock.h",
-    "disk_cache/blockfile/histogram_macros.h",
     "disk_cache/blockfile/in_flight_backend_io.cc",
     "disk_cache/blockfile/in_flight_backend_io.h",
     "disk_cache/blockfile/in_flight_io.cc",
@@ -566,8 +580,6 @@ component("net") {
     "first_party_sets/first_party_sets_context_config.h",
     "first_party_sets/global_first_party_sets.cc",
     "first_party_sets/global_first_party_sets.h",
-    "first_party_sets/same_party_context.cc",
-    "first_party_sets/same_party_context.h",
     "http/alternative_service.cc",
     "http/alternative_service.h",
     "http/bidirectional_stream.cc",
@@ -613,8 +625,6 @@ component("net") {
     "http/http_byte_range.h",
     "http/http_cache.cc",
     "http/http_cache.h",
-    "http/http_cache_lookup_manager.cc",
-    "http/http_cache_lookup_manager.h",
     "http/http_cache_transaction.cc",
     "http/http_cache_transaction.h",
     "http/http_cache_writers.cc",
@@ -949,13 +959,10 @@ component("net") {
     "spdy/header_coalescer.h",
     "spdy/http2_priority_dependencies.cc",
     "spdy/http2_priority_dependencies.h",
-    "spdy/http2_push_promise_index.cc",
-    "spdy/http2_push_promise_index.h",
     "spdy/multiplexed_http_stream.cc",
     "spdy/multiplexed_http_stream.h",
     "spdy/multiplexed_session.cc",
     "spdy/multiplexed_session.h",
-    "spdy/server_push_delegate.h",
     "spdy/spdy_buffer.cc",
     "spdy/spdy_buffer.h",
     "spdy/spdy_buffer_producer.cc",
@@ -1018,6 +1025,8 @@ component("net") {
     "ssl/ssl_server_config.h",
     "ssl/threaded_ssl_private_key.cc",
     "ssl/threaded_ssl_private_key.h",
+    "url_request/clear_site_data.cc",
+    "url_request/clear_site_data.h",
     "url_request/redirect_info.cc",
     "url_request/redirect_info.h",
     "url_request/redirect_util.cc",
@@ -1251,11 +1260,6 @@ component("net") {
       "proxy_resolution/proxy_resolver_mac.cc",
       "proxy_resolution/proxy_resolver_mac.h",
     ]
-    configs += [ "//build/config/compiler:enable_arc" ]
-  }
-
-  if (is_ios) {
-    deps += [ "//base/ios" ]
   }
 
   if (is_win) {
@@ -1271,7 +1275,7 @@ component("net") {
       "base/winsock_init.h",
       "base/winsock_util.cc",
       "base/winsock_util.h",
-      "cert/test_root_certs_win.cc",
+      "cert/test_root_certs_builtin.cc",
       "cert/x509_util_win.cc",
       "cert/x509_util_win.h",
       "disk_cache/blockfile/file_win.cc",
@@ -1707,6 +1711,12 @@ source_set("net_deps") {
     public_deps += [ "//third_party/brotli:dec" ]
   } else {
     public_deps += [ "//third_party/brotli:headers" ]
+  }
+
+  if (!disable_zstd_filter) {
+    public_deps += [ "//third_party/zstd:decompress" ]
+  } else {
+    public_deps += [ "//third_party/zstd:headers" ]
   }
 }
 

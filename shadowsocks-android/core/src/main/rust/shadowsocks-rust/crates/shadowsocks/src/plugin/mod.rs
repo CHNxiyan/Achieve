@@ -22,7 +22,7 @@ use std::{
 use log::{debug, error};
 use tokio::{net::TcpStream, process::Child, time};
 
-use crate::config::{Mode, ServerAddr};
+use crate::config::ServerAddr;
 
 mod obfs_proxy;
 mod ss_plugin;
@@ -33,7 +33,6 @@ pub struct PluginConfig {
     pub plugin: String,
     pub plugin_opts: Option<String>,
     pub plugin_args: Vec<String>,
-    pub plugin_mode: Mode,
 }
 
 /// Mode of Plugin
@@ -61,7 +60,6 @@ pub enum PluginMode {
 pub struct Plugin {
     process: Child,
     local_addr: SocketAddr,
-    mode: Mode,
 }
 
 impl Plugin {
@@ -92,31 +90,25 @@ impl Plugin {
                 match mode {
                     PluginMode::Client => {
                         debug!(
-                            "started plugin \"{}\" on {} <-> {} ({}) {}",
+                            "started plugin \"{}\" on {} <-> {} ({})",
                             c.plugin,
                             local_addr,
                             remote_addr,
-                            process.id().unwrap_or(0),
-                            c.plugin_mode
+                            process.id().unwrap_or(0)
                         );
                     }
                     PluginMode::Server => {
                         debug!(
-                            "started plugin \"{}\" on {} <-> {} ({}) {}",
+                            "started plugin \"{}\" on {} <-> {} ({})",
                             c.plugin,
                             remote_addr,
                             local_addr,
-                            process.id().unwrap_or(0),
-                            c.plugin_mode
+                            process.id().unwrap_or(0)
                         );
                     }
                 }
 
-                Ok(Plugin {
-                    process,
-                    local_addr,
-                    mode: c.plugin_mode,
-                })
+                Ok(Plugin { process, local_addr })
             }
         }
     }
@@ -128,12 +120,6 @@ impl Plugin {
 
     /// Check if plugin have been started
     pub async fn wait_started(&self, timeout: Duration) -> bool {
-        // Only test started with TCP connect()
-        // XXX: Is there an easy way to test if UDP port was listening? (no ICMP!)
-        if !self.mode.enable_tcp() {
-            return true;
-        }
-
         let start_time = Instant::now();
 
         loop {
@@ -144,7 +130,6 @@ impl Plugin {
             }
 
             let remain_time = timeout - elapsed_time;
-
             match time::timeout(remain_time, TcpStream::connect(self.local_addr)).await {
                 Ok(Ok(..)) => {
                     return true;
@@ -227,8 +212,10 @@ impl Drop for Plugin {
             }
         }
 
-        if !terminated && self.process.start_kill().is_ok() {
-            debug!("killed plugin process {:?}", self.process.id());
+        if !terminated {
+            if let Ok(..) = self.process.start_kill() {
+                debug!("killed plugin process {:?}", self.process.id());
+            }
         }
     }
 }

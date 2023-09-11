@@ -5,7 +5,7 @@
 #include "quiche/blind_sign_auth/blind_sign_auth.h"
 
 #include <cstddef>
-#include <functional>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,6 +15,7 @@
 #include "quiche/blind_sign_auth/proto/key_services.pb.h"
 #include "quiche/blind_sign_auth/proto/public_metadata.pb.h"
 #include "quiche/blind_sign_auth/proto/spend_token_data.pb.h"
+#include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
@@ -37,9 +38,8 @@ std::string OmitDefault(T value) {
 
 }  // namespace
 
-void BlindSignAuth::GetTokens(
-    absl::string_view oauth_token, int num_tokens,
-    std::function<void(absl::StatusOr<absl::Span<BlindSignToken>>)> callback) {
+void BlindSignAuth::GetTokens(std::string oauth_token, int num_tokens,
+                              SignedTokenCallback callback) {
   // Create GetInitialData RPC.
   privacy::ppn::GetInitialDataRequest request;
   request.set_use_attestation(false);
@@ -50,36 +50,36 @@ void BlindSignAuth::GetTokens(
   // Call GetInitialData on the HttpFetcher.
   std::string path_and_query = "/v1/getInitialData";
   std::string body = request.SerializeAsString();
-  http_fetcher_->DoRequest(
-      path_and_query, oauth_token.data(), body,
-      [this, callback, oauth_token,
-       num_tokens](absl::StatusOr<BlindSignHttpResponse> response) {
-        GetInitialDataCallback(response, oauth_token, num_tokens, callback);
-      });
+  BlindSignHttpCallback initial_data_callback =
+      absl::bind_front(&BlindSignAuth::GetInitialDataCallback, this,
+                       oauth_token, num_tokens, std::move(callback));
+  http_fetcher_->DoRequest(path_and_query, oauth_token, body,
+                           std::move(initial_data_callback));
 }
 
 void BlindSignAuth::GetInitialDataCallback(
-    absl::StatusOr<BlindSignHttpResponse> response,
-    absl::string_view oauth_token, int num_tokens,
-    std::function<void(absl::StatusOr<absl::Span<BlindSignToken>>)> callback) {
+    std::string oauth_token, int num_tokens, SignedTokenCallback callback,
+    absl::StatusOr<BlindSignHttpResponse> response) {
   if (!response.ok()) {
     QUICHE_LOG(WARNING) << "GetInitialDataRequest failed: "
                         << response.status();
-    callback(response.status());
+    std::move(callback)(response.status());
     return;
   }
-  int status_code = response.value().status_code();
-  if (response.value().status_code() != 200) {
-    QUICHE_LOG(WARNING) << "GetInitialDataRequest failed with code: "
-                        << status_code;
-    callback(response.status());
+  absl::StatusCode code = HttpCodeToStatusCode(response.value().status_code());
+  if (code != absl::StatusCode::kOk) {
+    std::string message =
+        absl::StrCat("GetInitialDataRequest failed with code: ", code);
+    QUICHE_LOG(WARNING) << message;
+    std::move(callback)(absl::Status(code, message));
     return;
   }
   // Parse GetInitialDataResponse.
   privacy::ppn::GetInitialDataResponse initial_data_response;
   if (!initial_data_response.ParseFromString(response.value().body())) {
     QUICHE_LOG(WARNING) << "Failed to parse GetInitialDataResponse";
-    callback(absl::InternalError("Failed to parse GetInitialDataResponse"));
+    std::move(callback)(
+        absl::InternalError("Failed to parse GetInitialDataResponse"));
     return;
   }
   absl::StatusOr<absl::Time> public_metadata_expiry_time =
@@ -88,7 +88,7 @@ void BlindSignAuth::GetInitialDataCallback(
               .public_metadata()
               .expiration());
   if (!public_metadata_expiry_time.ok()) {
-    callback(
+    std::move(callback)(
         absl::InternalError("Failed to parse public metadata expiration time"));
     return;
   }
@@ -100,7 +100,7 @@ void BlindSignAuth::GetInitialDataCallback(
   if (!bssa_client.ok()) {
     QUICHE_LOG(WARNING) << "Failed to create AT BSSA client: "
                         << bssa_client.status();
-    callback(bssa_client.status());
+    std::move(callback)(bssa_client.status());
     return;
   }
 
@@ -124,7 +124,7 @@ void BlindSignAuth::GetInitialDataCallback(
     if (!fingerprint_status.ok()) {
       QUICHE_LOG(WARNING) << "Failed to fingerprint public metadata: "
                           << fingerprint_status;
-      callback(fingerprint_status);
+      std::move(callback)(fingerprint_status);
       return;
     }
     uint64_t fingerprint_big_endian = QuicheEndian::HostToNet64(fingerprint);
@@ -141,7 +141,7 @@ void BlindSignAuth::GetInitialDataCallback(
   if (!at_sign_request.ok()) {
     QUICHE_LOG(WARNING) << "Failed to create AT Sign Request: "
                         << at_sign_request.status();
-    callback(at_sign_request.status());
+    std::move(callback)(at_sign_request.status());
     return;
   }
 
@@ -161,37 +161,36 @@ void BlindSignAuth::GetInitialDataCallback(
 
   privacy::ppn::PublicMetadataInfo public_metadata_info =
       initial_data_response.public_metadata_info();
-  http_fetcher_->DoRequest(
-      "/v1/authWithHeaderCreds", oauth_token.data(),
-      sign_request.SerializeAsString(),
-      [this, at_sign_request, public_metadata_info,
-       expiry_time_ = public_metadata_expiry_time.value(),
-       bssa_client_ = bssa_client.value().get(),
-       callback](absl::StatusOr<BlindSignHttpResponse> response) {
-        AuthAndSignCallback(response, public_metadata_info, expiry_time_,
-                            *at_sign_request, bssa_client_, callback);
-      });
+  BlindSignHttpCallback auth_and_sign_callback = absl::bind_front(
+      &BlindSignAuth::AuthAndSignCallback, this, public_metadata_info,
+      public_metadata_expiry_time.value(), *at_sign_request,
+      *std::move(bssa_client), std::move(callback));
+  http_fetcher_->DoRequest("/v1/authWithHeaderCreds", oauth_token.data(),
+                           sign_request.SerializeAsString(),
+                           std::move(auth_and_sign_callback));
 }
 
 void BlindSignAuth::AuthAndSignCallback(
-    absl::StatusOr<BlindSignHttpResponse> response,
     privacy::ppn::PublicMetadataInfo public_metadata_info,
     absl::Time public_key_expiry_time,
     private_membership::anonymous_tokens::AnonymousTokensSignRequest
         at_sign_request,
-    private_membership::anonymous_tokens::AnonymousTokensRsaBssaClient*
+    std::unique_ptr<
+        private_membership::anonymous_tokens::AnonymousTokensRsaBssaClient>
         bssa_client,
-    std::function<void(absl::StatusOr<absl::Span<BlindSignToken>>)> callback) {
+    SignedTokenCallback callback,
+    absl::StatusOr<BlindSignHttpResponse> response) {
   // Validate response.
   if (!response.ok()) {
     QUICHE_LOG(WARNING) << "AuthAndSign failed: " << response.status();
-    callback(response.status());
+    std::move(callback)(response.status());
     return;
   }
-  int status_code = response.value().status_code();
-  if (response.value().status_code() != 200) {
-    QUICHE_LOG(WARNING) << "AuthAndSign failed with code: " << status_code;
-    callback(response.status());
+  absl::StatusCode code = HttpCodeToStatusCode(response.value().status_code());
+  if (code != absl::StatusCode::kOk) {
+    std::string message = absl::StrCat("AuthAndSign failed with code: ", code);
+    QUICHE_LOG(WARNING) << message;
+    std::move(callback)(absl::Status(code, message));
     return;
   }
 
@@ -199,7 +198,8 @@ void BlindSignAuth::AuthAndSignCallback(
   privacy::ppn::AuthAndSignResponse sign_response;
   if (!sign_response.ParseFromString(response.value().body())) {
     QUICHE_LOG(WARNING) << "Failed to parse AuthAndSignResponse";
-    callback(absl::InternalError("Failed to parse AuthAndSignResponse"));
+    std::move(callback)(
+        absl::InternalError("Failed to parse AuthAndSignResponse"));
     return;
   }
 
@@ -211,7 +211,7 @@ void BlindSignAuth::AuthAndSignCallback(
       at_sign_request.blinded_tokens_size()) {
     QUICHE_LOG(WARNING)
         << "Response signature size does not equal request tokens size";
-    callback(absl::InternalError(
+    std::move(callback)(absl::InternalError(
         "Response signature size does not equal request tokens size"));
     return;
   }
@@ -222,7 +222,7 @@ void BlindSignAuth::AuthAndSignCallback(
     if (!absl::Base64Unescape(sign_response.blinded_token_signature(i),
                               &blinded_token)) {
       QUICHE_LOG(WARNING) << "Failed to unescape blinded token signature";
-      callback(
+      std::move(callback)(
           absl::InternalError("Failed to unescape blinded token signature"));
       return;
     }
@@ -244,14 +244,14 @@ void BlindSignAuth::AuthAndSignCallback(
   if (!signed_tokens.ok()) {
     QUICHE_LOG(WARNING) << "AuthAndSign ProcessResponse failed: "
                         << signed_tokens.status();
-    callback(signed_tokens.status());
+    std::move(callback)(signed_tokens.status());
     return;
   }
   if (signed_tokens->size() !=
       static_cast<size_t>(at_sign_response.anonymous_tokens_size())) {
     QUICHE_LOG(WARNING)
         << "ProcessResponse did not output the right number of signed tokens";
-    callback(absl::InternalError(
+    std::move(callback)(absl::InternalError(
         "ProcessResponse did not output the right number of signed tokens"));
     return;
   }
@@ -272,7 +272,7 @@ void BlindSignAuth::AuthAndSignCallback(
         at_sign_response.anonymous_tokens(i).use_case());
     if (!use_case.ok()) {
       QUICHE_LOG(WARNING) << "Failed to parse use case: " << use_case.status();
-      callback(use_case.status());
+      std::move(callback)(use_case.status());
       return;
     }
     spend_token_data.set_use_case(*use_case);
@@ -282,7 +282,7 @@ void BlindSignAuth::AuthAndSignCallback(
                                         public_key_expiry_time});
   }
 
-  callback(absl::Span<BlindSignToken>(tokens_vec));
+  std::move(callback)(absl::Span<BlindSignToken>(tokens_vec));
 }
 
 absl::Status BlindSignAuth::FingerprintPublicMetadata(
@@ -313,6 +313,44 @@ absl::Status BlindSignAuth::FingerprintPublicMetadata(
   // Return the first uint64_t of the SHA-256 hash.
   memcpy(fingerprint, digest.data(), sizeof(*fingerprint));
   return absl::OkStatus();
+}
+
+absl::StatusCode BlindSignAuth::HttpCodeToStatusCode(int http_code) {
+  // copybara:strip_begin(golink)
+  // This mapping is from go/http-canonical-mapping
+  // copybara:strip_end
+  if (http_code >= 200 && http_code < 300) {
+    return absl::StatusCode::kOk;
+  } else if (http_code >= 300 && http_code < 400) {
+    return absl::StatusCode::kUnknown;
+  } else if (http_code == 400) {
+    return absl::StatusCode::kInvalidArgument;
+  } else if (http_code == 401) {
+    return absl::StatusCode::kUnauthenticated;
+  } else if (http_code == 403) {
+    return absl::StatusCode::kPermissionDenied;
+  } else if (http_code == 404) {
+    return absl::StatusCode::kNotFound;
+  } else if (http_code == 409) {
+    return absl::StatusCode::kAborted;
+  } else if (http_code == 416) {
+    return absl::StatusCode::kOutOfRange;
+  } else if (http_code == 429) {
+    return absl::StatusCode::kResourceExhausted;
+  } else if (http_code == 499) {
+    return absl::StatusCode::kCancelled;
+  } else if (http_code >= 400 && http_code < 500) {
+    return absl::StatusCode::kFailedPrecondition;
+  } else if (http_code == 501) {
+    return absl::StatusCode::kUnimplemented;
+  } else if (http_code == 503) {
+    return absl::StatusCode::kUnavailable;
+  } else if (http_code == 504) {
+    return absl::StatusCode::kDeadlineExceeded;
+  } else if (http_code >= 500 && http_code < 600) {
+    return absl::StatusCode::kInternal;
+  }
+  return absl::StatusCode::kUnknown;
 }
 
 }  // namespace quiche

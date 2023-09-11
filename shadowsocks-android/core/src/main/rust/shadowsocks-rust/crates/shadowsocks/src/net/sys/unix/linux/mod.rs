@@ -2,7 +2,7 @@ use std::{
     io,
     mem,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
-    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+    os::unix::io::{AsRawFd, RawFd},
     pin::Pin,
     ptr,
     sync::atomic::{AtomicBool, Ordering},
@@ -22,7 +22,6 @@ use tokio_tfo::TfoStream;
 use crate::net::{
     sys::{set_common_sockopt_after_connect, set_common_sockopt_for_connect, socket_bind_dual_stack},
     udp::{BatchRecvMessage, BatchSendMessage},
-    AcceptOpts,
     AddrFamily,
     ConnectOpts,
 };
@@ -36,24 +35,11 @@ pub enum TcpStream {
 
 impl TcpStream {
     pub async fn connect(addr: SocketAddr, opts: &ConnectOpts) -> io::Result<TcpStream> {
-        if opts.tcp.mptcp {
-            return TcpStream::connect_mptcp(addr, opts).await;
-        }
-
         let socket = match addr {
             SocketAddr::V4(..) => TcpSocket::new_v4()?,
             SocketAddr::V6(..) => TcpSocket::new_v6()?,
         };
 
-        TcpStream::connect_with_socket(socket, addr, opts).await
-    }
-
-    async fn connect_mptcp(addr: SocketAddr, opts: &ConnectOpts) -> io::Result<TcpStream> {
-        let socket = create_mptcp_socket(&addr)?;
-        TcpStream::connect_with_socket(socket, addr, opts).await
-    }
-
-    async fn connect_with_socket(socket: TcpSocket, addr: SocketAddr, opts: &ConnectOpts) -> io::Result<TcpStream> {
         // Any traffic to localhost should not be protected
         // This is a workaround for VPNService
         #[cfg(target_os = "android")]
@@ -215,31 +201,6 @@ pub fn set_tcp_fastopen<S: AsRawFd>(socket: &S) -> io::Result<()> {
     Ok(())
 }
 
-fn create_mptcp_socket(bind_addr: &SocketAddr) -> io::Result<TcpSocket> {
-    unsafe {
-        let family = match bind_addr {
-            SocketAddr::V4(..) => libc::AF_INET,
-            SocketAddr::V6(..) => libc::AF_INET6,
-        };
-        let fd = libc::socket(family, libc::SOCK_STREAM, libc::IPPROTO_MPTCP);
-        let socket = Socket::from_raw_fd(fd);
-        socket.set_nonblocking(true)?;
-        Ok(TcpSocket::from_raw_fd(socket.into_raw_fd()))
-    }
-}
-
-/// Create a TCP socket for listening
-pub async fn create_inbound_tcp_socket(bind_addr: &SocketAddr, accept_opts: &AcceptOpts) -> io::Result<TcpSocket> {
-    if accept_opts.tcp.mptcp {
-        create_mptcp_socket(bind_addr)
-    } else {
-        match bind_addr {
-            SocketAddr::V4(..) => TcpSocket::new_v4(),
-            SocketAddr::V6(..) => TcpSocket::new_v6(),
-        }
-    }
-}
-
 /// Disable IP fragmentation
 #[inline]
 pub fn set_disable_ip_fragmentation<S: AsRawFd>(af: AddrFamily, socket: &S) -> io::Result<()> {
@@ -279,8 +240,7 @@ pub fn set_disable_ip_fragmentation<S: AsRawFd>(af: AddrFamily, socket: &S) -> i
     Ok(())
 }
 
-/// Create a `UdpSocket` with specific address family
-#[inline]
+/// Create a `UdpSocket` for connecting to `addr`
 pub async fn create_outbound_udp_socket(af: AddrFamily, config: &ConnectOpts) -> io::Result<UdpSocket> {
     let bind_addr = match (af, config.bind_local_addr) {
         (AddrFamily::Ipv4, Some(IpAddr::V4(ip))) => SocketAddr::new(ip.into(), 0),
@@ -289,18 +249,11 @@ pub async fn create_outbound_udp_socket(af: AddrFamily, config: &ConnectOpts) ->
         (AddrFamily::Ipv6, ..) => SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 0),
     };
 
-    bind_outbound_udp_socket(&bind_addr, config).await
-}
-
-/// Create a `UdpSocket` binded to `bind_addr`
-pub async fn bind_outbound_udp_socket(bind_addr: &SocketAddr, config: &ConnectOpts) -> io::Result<UdpSocket> {
-    let af = AddrFamily::from(bind_addr);
-
     let socket = if af != AddrFamily::Ipv6 {
         UdpSocket::bind(bind_addr).await?
     } else {
-        let socket = Socket::new(Domain::for_address(*bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
-        socket_bind_dual_stack(&socket, bind_addr, false)?;
+        let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+        socket_bind_dual_stack(&socket, &bind_addr, false)?;
 
         // UdpSocket::from_std requires socket to be non-blocked
         socket.set_nonblocking(true)?;
@@ -444,7 +397,7 @@ pub fn batch_recvmsg<S: AsRawFd>(sock: &S, msgs: &mut [BatchRecvMessage<'_>]) ->
         return Ok(0);
     }
 
-    if !SUPPORT_BATCH_SEND_RECV_MSG.load(Ordering::Relaxed) {
+    if !SUPPORT_BATCH_SEND_RECV_MSG.load(Ordering::Acquire) {
         recvmsg_fallback(sock, &mut msgs[0])?;
         return Ok(1);
     }
@@ -482,7 +435,7 @@ pub fn batch_recvmsg<S: AsRawFd>(sock: &S, msgs: &mut [BatchRecvMessage<'_>]) ->
         let err = io::Error::last_os_error();
         if let Some(libc::ENOSYS) = err.raw_os_error() {
             debug!("recvmmsg is not supported, fallback to recvmsg, error: {:?}", err);
-            SUPPORT_BATCH_SEND_RECV_MSG.store(false, Ordering::Relaxed);
+            SUPPORT_BATCH_SEND_RECV_MSG.store(false, Ordering::Release);
 
             recvmsg_fallback(sock, &mut msgs[0])?;
             return Ok(1);
@@ -527,7 +480,7 @@ pub fn batch_sendmsg<S: AsRawFd>(sock: &S, msgs: &mut [BatchSendMessage<'_>]) ->
         return Ok(0);
     }
 
-    if !SUPPORT_BATCH_SEND_RECV_MSG.load(Ordering::Relaxed) {
+    if !SUPPORT_BATCH_SEND_RECV_MSG.load(Ordering::Acquire) {
         sendmsg_fallback(sock, &mut msgs[0])?;
         return Ok(1);
     }
@@ -556,7 +509,7 @@ pub fn batch_sendmsg<S: AsRawFd>(sock: &S, msgs: &mut [BatchSendMessage<'_>]) ->
         let err = io::Error::last_os_error();
         if let Some(libc::ENOSYS) = err.raw_os_error() {
             debug!("sendmmsg is not supported, fallback to sendmsg, error: {:?}", err);
-            SUPPORT_BATCH_SEND_RECV_MSG.store(false, Ordering::Relaxed);
+            SUPPORT_BATCH_SEND_RECV_MSG.store(false, Ordering::Release);
 
             sendmsg_fallback(sock, &mut msgs[0])?;
             return Ok(1);

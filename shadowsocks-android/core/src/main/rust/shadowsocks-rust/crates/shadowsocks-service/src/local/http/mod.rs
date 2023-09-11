@@ -1,6 +1,6 @@
 //! Shadowsocks HTTP Local Server
 
-pub use self::server::{Http, HttpBuilder};
+pub use self::server::Http;
 
 mod client_cache;
 mod connector;

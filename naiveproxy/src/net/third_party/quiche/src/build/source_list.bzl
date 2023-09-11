@@ -307,6 +307,7 @@ quiche_core_hdrs = [
     "quic/core/quic_flags_list.h",
     "quic/core/quic_flow_controller.h",
     "quic/core/quic_framer.h",
+    "quic/core/quic_generic_session.h",
     "quic/core/quic_idle_network_detector.h",
     "quic/core/quic_interval.h",
     "quic/core/quic_interval_deque.h",
@@ -403,6 +404,7 @@ quiche_core_hdrs = [
     "spdy/core/spdy_protocol.h",
     "spdy/core/spdy_simple_arena.h",
     "spdy/core/zero_copy_output_buffer.h",
+    "web_transport/complete_buffer_visitor.h",
     "web_transport/web_transport.h",
 ]
 quiche_core_srcs = [
@@ -639,6 +641,7 @@ quiche_core_srcs = [
     "quic/core/quic_error_codes.cc",
     "quic/core/quic_flow_controller.cc",
     "quic/core/quic_framer.cc",
+    "quic/core/quic_generic_session.cc",
     "quic/core/quic_idle_network_detector.cc",
     "quic/core/quic_mtu_discovery.cc",
     "quic/core/quic_network_blackhole_detector.cc",
@@ -699,6 +702,7 @@ quiche_core_srcs = [
     "spdy/core/spdy_prefixed_buffer_reader.cc",
     "spdy/core/spdy_protocol.cc",
     "spdy/core/spdy_simple_arena.cc",
+    "web_transport/complete_buffer_visitor.cc",
 ]
 quiche_tool_support_hdrs = [
     "common/platform/api/quiche_command_line_flags.h",
@@ -709,6 +713,7 @@ quiche_tool_support_hdrs = [
     "quic/tools/connect_server_backend.h",
     "quic/tools/connect_tunnel.h",
     "quic/tools/connect_udp_tunnel.h",
+    "quic/tools/devious_baton.h",
     "quic/tools/fake_proof_verifier.h",
     "quic/tools/quic_backend_response.h",
     "quic/tools/quic_client_base.h",
@@ -733,6 +738,7 @@ quiche_tool_support_srcs = [
     "quic/tools/connect_server_backend.cc",
     "quic/tools/connect_tunnel.cc",
     "quic/tools/connect_udp_tunnel.cc",
+    "quic/tools/devious_baton.cc",
     "quic/tools/quic_backend_response.cc",
     "quic/tools/quic_client_base.cc",
     "quic/tools/quic_memory_cache_backend.cc",
@@ -790,6 +796,7 @@ quiche_test_support_hdrs = [
     "quic/test_tools/limited_mtu_test_writer.h",
     "quic/test_tools/mock_clock.h",
     "quic/test_tools/mock_connection_id_generator.h",
+    "quic/test_tools/mock_load_balancer_encoder.h",
     "quic/test_tools/mock_quic_client_promised_info.h",
     "quic/test_tools/mock_quic_dispatcher.h",
     "quic/test_tools/mock_quic_session_visitor.h",
@@ -1224,6 +1231,7 @@ quiche_tests_srcs = [
     "quic/core/quic_error_codes_test.cc",
     "quic/core/quic_flow_controller_test.cc",
     "quic/core/quic_framer_test.cc",
+    "quic/core/quic_generic_session_test.cc",
     "quic/core/quic_idle_network_detector_test.cc",
     "quic/core/quic_interval_deque_test.cc",
     "quic/core/quic_interval_set_test.cc",
@@ -1347,6 +1355,7 @@ cli_tools_srcs = [
     "quic/tools/quic_server_factory.cc",
     "quic/tools/quic_toy_client.cc",
     "quic/tools/quic_toy_server.cc",
+    "quic/tools/web_transport_test_server.cc",
 ]
 nghttp2_hdrs = [
     "http2/adapter/callback_visitor.h",
@@ -1558,6 +1567,7 @@ qbone_srcs = [
 ]
 blind_sign_auth_hdrs = [
     "blind_sign_auth/anonymous_tokens/cpp/client/anonymous_tokens_rsa_bssa_client.h",
+    "blind_sign_auth/anonymous_tokens/cpp/crypto/anonymous_tokens_pb_openssl_converters.h",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/blind_signer.h",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/blinder.h",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/constants.h",
@@ -1580,6 +1590,7 @@ blind_sign_auth_hdrs = [
 ]
 blind_sign_auth_srcs = [
     "blind_sign_auth/anonymous_tokens/cpp/client/anonymous_tokens_rsa_bssa_client.cc",
+    "blind_sign_auth/anonymous_tokens/cpp/crypto/anonymous_tokens_pb_openssl_converters.cc",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/crypto_utils.cc",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blind_signer.cc",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blinder.cc",
@@ -1594,6 +1605,7 @@ blind_sign_auth_tests_hdrs = [
 ]
 blind_sign_auth_tests_srcs = [
     "blind_sign_auth/anonymous_tokens/cpp/client/anonymous_tokens_rsa_bssa_client_test.cc",
+    "blind_sign_auth/anonymous_tokens/cpp/crypto/anonymous_tokens_pb_openssl_converters_test.cc",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/at_crypto_utils_test.cc",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blind_signer_test.cc",
     "blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blinder_test.cc",

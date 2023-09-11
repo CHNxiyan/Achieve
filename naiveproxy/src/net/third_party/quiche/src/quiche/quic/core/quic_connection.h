@@ -281,7 +281,7 @@ class QUIC_EXPORT_PRIVATE QuicConnectionDebugVisitor
                             EncryptionLevel /*encryption_level*/,
                             const QuicFrames& /*retransmittable_frames*/,
                             const QuicFrames& /*nonretransmittable_frames*/,
-                            QuicTime /*sent_time*/) {}
+                            QuicTime /*sent_time*/, uint32_t /*batch_id*/) {}
 
   // Called when a coalesced packet is successfully serialized.
   virtual void OnCoalescedPacketSent(
@@ -1279,6 +1279,10 @@ class QUIC_EXPORT_PRIVATE QuicConnection
 
   bool in_probe_time_out() const { return in_probe_time_out_; }
 
+  QuicNetworkBlackholeDetector& blackhole_detector() {
+    return blackhole_detector_;
+  }
+
   // Ensures the network blackhole delay is longer than path degrading delay.
   static QuicTime::Delta CalculateNetworkBlackholeDelay(
       QuicTime::Delta blackhole_delay, QuicTime::Delta path_degrading_delay,
@@ -1699,10 +1703,6 @@ class QUIC_EXPORT_PRIVATE QuicConnection
   // Retire active peer issued connection IDs after they are no longer used on
   // any path.
   void RetirePeerIssuedConnectionIdsNoLongerOnPath();
-
-  // When path validation fails, proactively retire peer issued connection IDs
-  // no longer used on any path.
-  void RetirePeerIssuedConnectionIdsOnPathValidationFailure();
 
   // Writes the given packet to socket, encrypted with packet's
   // encryption_level. Returns true on successful write, and false if the writer

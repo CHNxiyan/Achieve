@@ -1,6 +1,6 @@
 //! Shadowsocks Local Transparent Proxy
 
-pub use self::server::{Redir, RedirBuilder};
+pub use self::server::Redir;
 
 mod redir_ext;
 mod server;

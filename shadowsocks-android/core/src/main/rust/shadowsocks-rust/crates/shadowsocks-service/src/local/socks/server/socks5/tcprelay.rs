@@ -40,7 +40,7 @@ use crate::{
 
 pub struct Socks5TcpHandler {
     context: Arc<ServiceContext>,
-    udp_bind_addr: Arc<ServerAddr>,
+    udp_bind_addr: Option<Arc<ServerAddr>>,
     balancer: PingBalancer,
     mode: Mode,
     auth: Arc<Socks5AuthConfig>,
@@ -49,7 +49,7 @@ pub struct Socks5TcpHandler {
 impl Socks5TcpHandler {
     pub fn new(
         context: Arc<ServiceContext>,
-        udp_bind_addr: Arc<ServerAddr>,
+        udp_bind_addr: Option<Arc<ServerAddr>>,
         balancer: PingBalancer,
         mode: Mode,
         auth: Arc<Socks5AuthConfig>,
@@ -296,23 +296,26 @@ impl Socks5TcpHandler {
     }
 
     async fn handle_udp_associate(self, mut stream: TcpStream, client_addr: Address) -> io::Result<()> {
-        if !self.mode.enable_udp() {
-            warn!("socks5 udp is disabled");
+        match self.udp_bind_addr {
+            None => {
+                warn!("socks5 udp is disabled");
 
-            let rh = TcpResponseHeader::new(socks5::Reply::CommandNotSupported, client_addr);
-            rh.write_to(&mut stream).await?;
+                let rh = TcpResponseHeader::new(socks5::Reply::CommandNotSupported, client_addr);
+                rh.write_to(&mut stream).await?;
 
-            return Ok(());
+                Ok(())
+            }
+            Some(bind_addr) => {
+                // shadowsocks accepts both TCP and UDP from the same address
+
+                let rh = TcpResponseHeader::new(socks5::Reply::Succeeded, bind_addr.as_ref().into());
+                rh.write_to(&mut stream).await?;
+
+                // Hold connection until EOF.
+                let _ = ignore_until_end(&mut stream).await;
+
+                Ok(())
+            }
         }
-
-        // shadowsocks accepts both TCP and UDP from the same address
-
-        let rh = TcpResponseHeader::new(socks5::Reply::Succeeded, self.udp_bind_addr.as_ref().into());
-        rh.write_to(&mut stream).await?;
-
-        // Hold connection until EOF.
-        let _ = ignore_until_end(&mut stream).await;
-
-        Ok(())
     }
 }

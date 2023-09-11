@@ -22,7 +22,8 @@ use shadowsocks_service::{
         ProtocolType,
         ServerInstanceConfig,
     },
-    local::{loadbalancing::PingBalancer, Server},
+    create_local,
+    local::loadbalancing::PingBalancer,
     shadowsocks::{
         config::{Mode, ServerAddr, ServerConfig},
         crypto::{available_ciphers, CipherKind},
@@ -86,7 +87,7 @@ pub fn define_command_line_options(mut app: Command) -> Command {
             .action(ArgAction::Set)
             .value_parser(clap::value_parser!(PathBuf))
             .value_hint(ValueHint::FilePath)
-            .help("Shadowsocks configuration file (https://shadowsocks.org/doc/configs.html)"),
+            .help("Shadowsocks configuration file (https://shadowsocks.org/guide/configs.html)"),
     )
     .arg(
         Arg::new("LOCAL_ADDR")
@@ -182,7 +183,7 @@ pub fn define_command_line_options(mut app: Command) -> Command {
             .help("Set SIP003 plugin options"),
     )
     .arg(
-        Arg::new("SERVER_URL")
+        Arg::new("URL")
             .long("server-url")
             .num_args(1)
             .action(ArgAction::Set)
@@ -191,7 +192,7 @@ pub fn define_command_line_options(mut app: Command) -> Command {
             .help("Server address in SIP002 (https://shadowsocks.org/guide/sip002.html) URL"),
     )
     .group(ArgGroup::new("SERVER_CONFIG")
-        .arg("SERVER_ADDR").arg("SERVER_URL").multiple(true))
+        .arg("SERVER_ADDR").arg("URL").multiple(true))
     .arg(
         Arg::new("ACL")
             .long("acl")
@@ -201,11 +202,9 @@ pub fn define_command_line_options(mut app: Command) -> Command {
             .help("Path to ACL (Access Control List)"),
     )
     .arg(Arg::new("DNS").long("dns").num_args(1).action(ArgAction::Set).help("DNS nameservers, formatted like [(tcp|udp)://]host[:port][,host[:port]]..., or unix:///path/to/dns, or predefined keys like \"google\", \"cloudflare\""))
-    .arg(Arg::new("DNS_CACHE_SIZE").long("dns-cache-size").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(usize)).help("DNS cache size in number of records. Works when trust-dns DNS backend is enabled."))
     .arg(Arg::new("TCP_NO_DELAY").long("tcp-no-delay").alias("no-delay").action(ArgAction::SetTrue).help("Set TCP_NODELAY option for sockets"))
     .arg(Arg::new("TCP_FAST_OPEN").long("tcp-fast-open").alias("fast-open").action(ArgAction::SetTrue).help("Enable TCP Fast Open (TFO)"))
     .arg(Arg::new("TCP_KEEP_ALIVE").long("tcp-keep-alive").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(u64)).help("Set TCP keep alive timeout seconds"))
-    .arg(Arg::new("TCP_MULTIPATH").long("tcp-multipath").alias("mptcp").action(ArgAction::SetTrue).help("Enable Multipath-TCP (MPTCP)"))
     .arg(Arg::new("UDP_TIMEOUT").long("udp-timeout").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(u64)).help("Timeout seconds for UDP relay"))
     .arg(Arg::new("UDP_MAX_ASSOCIATIONS").long("udp-max-associations").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(usize)).help("Maximum associations to be kept simultaneously for UDP relay"))
     .arg(Arg::new("INBOUND_SEND_BUFFER_SIZE").long("inbound-send-buffer-size").num_args(1).action(ArgAction::Set).value_parser(clap::value_parser!(u32)).help("Set inbound sockets' SO_SNDBUF option"))
@@ -501,7 +500,7 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
     let (config, runtime) = {
         let config_path_opt = matches.get_one::<PathBuf>("CONFIG").cloned().or_else(|| {
             if !matches.contains_id("SERVER_CONFIG") {
-                match crate::config::get_default_config_path("local.json") {
+                match crate::config::get_default_config_path() {
                     None => None,
                     Some(p) => {
                         println!("loading default config {p:?}");
@@ -583,7 +582,6 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
                     plugin: p,
                     plugin_opts: matches.get_one::<String>("PLUGIN_OPT").cloned(),
                     plugin_args: Vec::new(),
-                    plugin_mode: Mode::TcpOnly,
                 };
 
                 sc.set_plugin(plugin);
@@ -592,7 +590,7 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
             config.server.push(ServerInstanceConfig::with_server_config(sc));
         }
 
-        if let Some(svr_addr) = matches.get_one::<ServerConfig>("SERVER_URL").cloned() {
+        if let Some(svr_addr) = matches.get_one::<ServerConfig>("URL").cloned() {
             config.server.push(ServerInstanceConfig::with_server_config(svr_addr));
         }
 
@@ -748,10 +746,6 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
             config.keep_alive = Some(Duration::from_secs(*keep_alive));
         }
 
-        if matches.get_flag("TCP_MULTIPATH") {
-            config.mptcp = true;
-        }
-
         #[cfg(any(target_os = "linux", target_os = "android"))]
         if let Some(mark) = matches.get_one::<u32>("OUTBOUND_FWMARK") {
             config.outbound_fwmark = Some(*mark);
@@ -789,10 +783,6 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
 
         if let Some(dns) = matches.get_one::<String>("DNS") {
             config.set_dns_formatted(dns).expect("dns");
-        }
-
-        if let Some(dns_cache_size) = matches.get_one::<usize>("DNS_CACHE_SIZE") {
-            config.dns_cache_size = Some(*dns_cache_size);
         }
 
         if matches.get_flag("IPV6_FIRST") {
@@ -873,14 +863,14 @@ pub fn main(matches: &ArgMatches) -> ExitCode {
     runtime.block_on(async move {
         let config_path = config.config_path.clone();
 
-        let instance = Server::new(config).await.expect("create local");
+        let instance = create_local(config).await.expect("create local");
 
         if let Some(config_path) = config_path {
             launch_reload_server_task(config_path, instance.server_balancer().clone());
         }
 
         let abort_signal = monitor::create_signal_monitor();
-        let server = instance.run();
+        let server = instance.wait_until_exit();
 
         tokio::pin!(abort_signal);
         tokio::pin!(server);

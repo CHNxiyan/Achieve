@@ -307,6 +307,7 @@ quiche_core_hdrs = [
     "src/quiche/quic/core/quic_flags_list.h",
     "src/quiche/quic/core/quic_flow_controller.h",
     "src/quiche/quic/core/quic_framer.h",
+    "src/quiche/quic/core/quic_generic_session.h",
     "src/quiche/quic/core/quic_idle_network_detector.h",
     "src/quiche/quic/core/quic_interval.h",
     "src/quiche/quic/core/quic_interval_deque.h",
@@ -403,6 +404,7 @@ quiche_core_hdrs = [
     "src/quiche/spdy/core/spdy_protocol.h",
     "src/quiche/spdy/core/spdy_simple_arena.h",
     "src/quiche/spdy/core/zero_copy_output_buffer.h",
+    "src/quiche/web_transport/complete_buffer_visitor.h",
     "src/quiche/web_transport/web_transport.h",
 ]
 quiche_core_srcs = [
@@ -639,6 +641,7 @@ quiche_core_srcs = [
     "src/quiche/quic/core/quic_error_codes.cc",
     "src/quiche/quic/core/quic_flow_controller.cc",
     "src/quiche/quic/core/quic_framer.cc",
+    "src/quiche/quic/core/quic_generic_session.cc",
     "src/quiche/quic/core/quic_idle_network_detector.cc",
     "src/quiche/quic/core/quic_mtu_discovery.cc",
     "src/quiche/quic/core/quic_network_blackhole_detector.cc",
@@ -699,6 +702,7 @@ quiche_core_srcs = [
     "src/quiche/spdy/core/spdy_prefixed_buffer_reader.cc",
     "src/quiche/spdy/core/spdy_protocol.cc",
     "src/quiche/spdy/core/spdy_simple_arena.cc",
+    "src/quiche/web_transport/complete_buffer_visitor.cc",
 ]
 quiche_tool_support_hdrs = [
     "src/quiche/common/platform/api/quiche_command_line_flags.h",
@@ -709,6 +713,7 @@ quiche_tool_support_hdrs = [
     "src/quiche/quic/tools/connect_server_backend.h",
     "src/quiche/quic/tools/connect_tunnel.h",
     "src/quiche/quic/tools/connect_udp_tunnel.h",
+    "src/quiche/quic/tools/devious_baton.h",
     "src/quiche/quic/tools/fake_proof_verifier.h",
     "src/quiche/quic/tools/quic_backend_response.h",
     "src/quiche/quic/tools/quic_client_base.h",
@@ -733,6 +738,7 @@ quiche_tool_support_srcs = [
     "src/quiche/quic/tools/connect_server_backend.cc",
     "src/quiche/quic/tools/connect_tunnel.cc",
     "src/quiche/quic/tools/connect_udp_tunnel.cc",
+    "src/quiche/quic/tools/devious_baton.cc",
     "src/quiche/quic/tools/quic_backend_response.cc",
     "src/quiche/quic/tools/quic_client_base.cc",
     "src/quiche/quic/tools/quic_memory_cache_backend.cc",
@@ -790,6 +796,7 @@ quiche_test_support_hdrs = [
     "src/quiche/quic/test_tools/limited_mtu_test_writer.h",
     "src/quiche/quic/test_tools/mock_clock.h",
     "src/quiche/quic/test_tools/mock_connection_id_generator.h",
+    "src/quiche/quic/test_tools/mock_load_balancer_encoder.h",
     "src/quiche/quic/test_tools/mock_quic_client_promised_info.h",
     "src/quiche/quic/test_tools/mock_quic_dispatcher.h",
     "src/quiche/quic/test_tools/mock_quic_session_visitor.h",
@@ -1225,6 +1232,7 @@ quiche_tests_srcs = [
     "src/quiche/quic/core/quic_error_codes_test.cc",
     "src/quiche/quic/core/quic_flow_controller_test.cc",
     "src/quiche/quic/core/quic_framer_test.cc",
+    "src/quiche/quic/core/quic_generic_session_test.cc",
     "src/quiche/quic/core/quic_idle_network_detector_test.cc",
     "src/quiche/quic/core/quic_interval_deque_test.cc",
     "src/quiche/quic/core/quic_interval_set_test.cc",
@@ -1350,6 +1358,7 @@ cli_tools_srcs = [
     "src/quiche/quic/tools/quic_server_factory.cc",
     "src/quiche/quic/tools/quic_toy_client.cc",
     "src/quiche/quic/tools/quic_toy_server.cc",
+    "src/quiche/quic/tools/web_transport_test_server.cc",
 ]
 nghttp2_hdrs = [
     "src/quiche/http2/adapter/callback_visitor.h",
@@ -1562,6 +1571,7 @@ qbone_srcs = [
 ]
 blind_sign_auth_hdrs = [
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/client/anonymous_tokens_rsa_bssa_client.h",
+    "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/anonymous_tokens_pb_openssl_converters.h",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/blind_signer.h",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/blinder.h",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/constants.h",
@@ -1584,6 +1594,7 @@ blind_sign_auth_hdrs = [
 ]
 blind_sign_auth_srcs = [
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/client/anonymous_tokens_rsa_bssa_client.cc",
+    "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/anonymous_tokens_pb_openssl_converters.cc",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/crypto_utils.cc",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blind_signer.cc",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blinder.cc",
@@ -1599,6 +1610,7 @@ blind_sign_auth_tests_hdrs = [
 ]
 blind_sign_auth_tests_srcs = [
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/client/anonymous_tokens_rsa_bssa_client_test.cc",
+    "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/anonymous_tokens_pb_openssl_converters_test.cc",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/at_crypto_utils_test.cc",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blind_signer_test.cc",
     "src/quiche/blind_sign_auth/anonymous_tokens/cpp/crypto/rsa_blinder_test.cc",

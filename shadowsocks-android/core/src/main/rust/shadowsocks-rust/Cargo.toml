@@ -1,6 +1,6 @@
 [package]
 name = "shadowsocks-rust"
-version = "1.16.0"
+version = "1.15.2"
 authors = ["Shadowsocks Contributors"]
 description = "shadowsocks is a fast tunnel proxy that helps you bypass firewalls."
 repository = "https://github.com/shadowsocks/shadowsocks-rust"
@@ -144,13 +144,13 @@ json5 = "0.4"
 thiserror = "1.0"
 base64 = "0.21"
 
-clap = { version = "4.3", features = ["wrap_help", "suggestions"] }
+clap = { version = "4.1", features = ["wrap_help", "suggestions"] }
 cfg-if = "1"
 qrcode = { version = "0.12", default-features = false, optional = true }
-sysexits = "0.6"
+sysexits = "0.4"
 build-time = "0.1"
-directories = "5.0"
-xdg = "2.5"
+directories = "4.0"
+xdg = "2.4"
 rpassword = "7.0"
 libc = { version = "0.2", features = ["extra_traits"] }
 rand = "0.8"
@@ -167,10 +167,10 @@ jemallocator = { version = "0.5", optional = true }
 snmalloc-rs = { version = "0.3", optional = true }
 rpmalloc = { version = "0.2", optional = true }
 
-shadowsocks-service = { version = "1.16.0", path = "./crates/shadowsocks-service" }
+shadowsocks-service = { version = "1.15.0", path = "./crates/shadowsocks-service" }
 
 [target.'cfg(unix)'.dependencies]
-daemonize = "0.5"
+daemonize = "0.4"
 
 [dev-dependencies]
 byteorder = "1.3"

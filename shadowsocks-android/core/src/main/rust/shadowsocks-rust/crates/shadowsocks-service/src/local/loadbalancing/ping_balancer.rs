@@ -242,7 +242,7 @@ impl PingBalancerContext {
         check_interval: Duration,
         check_best_interval: Option<Duration>,
     ) -> io::Result<(Arc<PingBalancerContext>, PingBalancerContextTask)> {
-        let plugin_abortable = {
+        let plugin_abortable = if mode.enable_tcp() {
             // Start plugins for TCP proxies
 
             let mut plugins = Vec::with_capacity(servers.len());
@@ -301,6 +301,8 @@ impl PingBalancerContext {
 
                 Some(plugin_abortable)
             }
+        } else {
+            None
         };
 
         let (best_tcp_idx, best_udp_idx) = PingBalancerBuilder::find_best_idx(&servers, mode);

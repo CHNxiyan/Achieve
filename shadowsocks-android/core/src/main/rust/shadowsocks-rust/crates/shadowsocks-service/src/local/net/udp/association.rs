@@ -179,7 +179,7 @@ where
     }
 
     fn try_send(&self, data: (Address, Bytes)) -> io::Result<()> {
-        if self.sender.try_send(data).is_err() {
+        if let Err(..) = self.sender.try_send(data) {
             let err = io::Error::new(ErrorKind::Other, "udp relay channel full");
             return Err(err);
         }
@@ -376,7 +376,7 @@ where
 
                 _ = keepalive_interval.tick() => {
                     if self.keepalive_flag {
-                        if self.keepalive_tx.try_send(self.peer_addr).is_err() {
+                        if let Err(..) = self.keepalive_tx.try_send(self.peer_addr) {
                             debug!("udp relay {} keep-alive failed, channel full or closed", self.peer_addr);
                         } else {
                             self.keepalive_flag = false;

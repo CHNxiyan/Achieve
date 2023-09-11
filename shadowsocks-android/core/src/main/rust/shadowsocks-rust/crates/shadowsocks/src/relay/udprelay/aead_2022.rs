@@ -119,7 +119,18 @@ struct CipherKey {
 
 impl PartialOrd for CipherKey {
     fn partial_cmp(&self, other: &CipherKey) -> Option<Ordering> {
-        Some(self.cmp(other))
+        let hash1 = {
+            let mut hasher = DefaultHasher::new();
+            self.hash(&mut hasher);
+            hasher.finish()
+        };
+        let hash2 = {
+            let mut hasher = DefaultHasher::new();
+            other.hash(&mut hasher);
+            hasher.finish()
+        };
+
+        hash1.partial_cmp(&hash2)
     }
 }
 

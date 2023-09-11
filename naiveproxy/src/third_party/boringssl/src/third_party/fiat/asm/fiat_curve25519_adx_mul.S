@@ -1,9 +1,7 @@
-#if !defined(OPENSSL_NO_ASM) && defined(__x86_64__) && \
-    (defined(__APPLE__) || defined(__ELF__))
+#include <openssl/asm_base.h>
 
-#if defined(BORINGSSL_PREFIX)
-#include <boringssl_prefix_symbols_asm.h>
-#endif
+#if !defined(OPENSSL_NO_ASM) && defined(OPENSSL_X86_64) && \
+    (defined(__APPLE__) || defined(__ELF__))
 
 .intel_syntax noprefix
 .text
@@ -19,6 +17,7 @@ fiat_curve25519_adx_mul:
 #endif
 
 .cfi_startproc
+_CET_ENDBR
 mov [rsp - 0x08], rbp
 .cfi_offset rbp, -8-0x08
 mov rbp, rsp
@@ -168,8 +167,4 @@ ret
 .size fiat_curve25519_adx_mul, .-fiat_curve25519_adx_mul
 #endif
 
-#endif
-
-#if defined(__ELF__)
-.section	.note.GNU-stack,"",%progbits
 #endif

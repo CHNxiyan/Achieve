@@ -15,7 +15,7 @@ use lru_time_cache::LruCache;
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use shadowsocks::{
     config::ServerUser,
-    crypto::CipherCategory,
+    crypto::{CipherCategory, CipherKind},
     lookup_then,
     net::{AcceptOpts, AddrFamily, UdpSocket as OutboundUdpSocket},
     relay::{
@@ -81,26 +81,24 @@ impl NatMap {
     }
 }
 
-/// UDP server instance
 pub struct UdpServer {
     context: Arc<ServiceContext>,
     assoc_map: NatMap,
     keepalive_tx: mpsc::Sender<NatKey>,
     keepalive_rx: mpsc::Receiver<NatKey>,
     time_to_live: Duration,
+    accept_opts: AcceptOpts,
     worker_count: usize,
-    listener: Arc<MonProxySocket>,
-    svr_cfg: ServerConfig,
 }
 
 impl UdpServer {
-    pub(crate) async fn new(
+    pub fn new(
         context: Arc<ServiceContext>,
-        svr_cfg: ServerConfig,
+        method: CipherKind,
         time_to_live: Option<Duration>,
         capacity: Option<usize>,
         accept_opts: AcceptOpts,
-    ) -> io::Result<UdpServer> {
+    ) -> UdpServer {
         let time_to_live = time_to_live.unwrap_or(crate::DEFAULT_UDP_EXPIRY_DURATION);
 
         fn create_assoc_map<K, V>(time_to_live: Duration, capacity: Option<usize>) -> LruCache<K, V>
@@ -113,7 +111,7 @@ impl UdpServer {
             }
         }
 
-        let assoc_map = match svr_cfg.method().category() {
+        let assoc_map = match method.category() {
             CipherCategory::None | CipherCategory::Aead => {
                 NatMap::Association(create_assoc_map(time_to_live, capacity))
             }
@@ -125,44 +123,32 @@ impl UdpServer {
 
         let (keepalive_tx, keepalive_rx) = mpsc::channel(UDP_ASSOCIATION_KEEP_ALIVE_CHANNEL_SIZE);
 
-        let socket = ProxySocket::bind_with_opts(context.context(), &svr_cfg, accept_opts).await?;
-        let socket = MonProxySocket::from_socket(socket, context.flow_stat());
-        let listener = Arc::new(socket);
-
-        Ok(UdpServer {
+        UdpServer {
             context,
             assoc_map,
             keepalive_tx,
             keepalive_rx,
             time_to_live,
+            accept_opts,
             worker_count: 1,
-            listener,
-            svr_cfg,
-        })
+        }
     }
 
     #[inline]
-    pub(crate) fn set_worker_count(&mut self, worker_count: usize) {
+    pub fn set_worker_count(&mut self, worker_count: usize) {
         self.worker_count = worker_count;
     }
 
-    /// Server's configuration
-    pub fn server_config(&self) -> &ServerConfig {
-        &self.svr_cfg
-    }
+    pub async fn run(mut self, svr_cfg: &ServerConfig) -> io::Result<()> {
+        let socket = ProxySocket::bind_with_opts(self.context.context(), svr_cfg, self.accept_opts.clone()).await?;
 
-    /// Server's listen address
-    pub fn local_addr(&self) -> io::Result<SocketAddr> {
-        self.listener.get_ref().local_addr()
-    }
-
-    /// Start server's accept loop
-    pub async fn run(mut self) -> io::Result<()> {
         info!(
-            "shadowsocks udp server listening on {}, inbound address {}",
-            self.local_addr().expect("listener.local_addr"),
-            self.svr_cfg.addr(),
+            "shadowsocks udp server listening on {}",
+            socket.local_addr().expect("listener.local_addr"),
         );
+
+        let socket = MonProxySocket::from_socket(socket, self.context.flow_stat());
+        let listener = Arc::new(socket);
 
         let mut cleanup_timer = time::interval(self.time_to_live);
 
@@ -179,7 +165,7 @@ impl UdpServer {
 
             for _ in 1..cpus {
                 let otx = otx.clone();
-                let listener = self.listener.clone();
+                let listener = listener.clone();
                 let context = self.context.clone();
 
                 other_receivers.push(tokio::spawn(async move {
@@ -192,10 +178,9 @@ impl UdpServer {
                                 None => continue,
                             };
 
-                        if (otx
+                        if let Err(..) = otx
                             .send((peer_addr, target_addr, control, Bytes::copy_from_slice(&buffer[..n])))
-                            .await)
-                            .is_err()
+                            .await
                         {
                             // If Result is error, the channel receiver is closed. We should exit the task.
                             break;
@@ -235,8 +220,6 @@ impl UdpServer {
         }
 
         let mut buffer = [0u8; MAXIMUM_UDP_PAYLOAD_SIZE];
-        // Make a clone to self.listener to avoid borrowing self
-        let listener = self.listener.clone();
         loop {
             tokio::select! {
                 _ = cleanup_timer.tick() => {
@@ -424,7 +407,7 @@ impl UdpAssociation {
     }
 
     fn try_send(&self, data: UdpAssociationSendMessage) -> io::Result<()> {
-        if self.sender.try_send(data).is_err() {
+        if let Err(..) = self.sender.try_send(data) {
             let err = io::Error::new(ErrorKind::Other, "udp relay channel full");
             return Err(err);
         }
@@ -567,7 +550,7 @@ impl UdpAssociationContext {
                             Some(..) => unreachable!("client_session_id is not None but aead-cipher-2022 is not enabled"),
                         };
 
-                        if self.keepalive_tx.try_send(nat_key).is_err() {
+                        if let Err(..) = self.keepalive_tx.try_send(nat_key) {
                             debug!("udp relay {:?} keep-alive failed, channel full or closed", nat_key);
                         } else {
                             self.keepalive_flag = false;

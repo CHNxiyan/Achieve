@@ -3540,7 +3540,7 @@ bool QuicConnection::WritePacket(SerializedPacket* packet) {
           sent_packet_manager_.unacked_packets()
               .rbegin()
               ->retransmittable_frames,
-          packet->nonretransmittable_frames, packet_send_time);
+          packet->nonretransmittable_frames, packet_send_time, result.batch_id);
     }
   }
   if (packet->encryption_level == ENCRYPTION_HANDSHAKE) {
@@ -4085,7 +4085,7 @@ void QuicConnection::OnRetransmissionTimeout() {
 #ifndef NDEBUG
   if (sent_packet_manager_.unacked_packets().empty()) {
     QUICHE_DCHECK(sent_packet_manager_.handshake_mode_disabled());
-    QUICHE_DCHECK(!IsHandshakeComplete());
+    QUICHE_DCHECK(!IsHandshakeConfirmed());
   }
 #endif
   if (!connected_) {
@@ -5020,6 +5020,8 @@ bool QuicConnection::WritePacketUsingWriter(
       packet->encrypted_buffer, packet->encrypted_length, self_address.host(),
       peer_address, writer, GetEcnCodepointToSend(peer_address));
 
+  const uint32_t writer_batch_id = result.batch_id;
+
   // If using a batch writer and the probing packet is buffered, flush it.
   if (writer->IsBatchMode() && result.status == WRITE_STATUS_OK &&
       result.bytes_written == 0) {
@@ -5051,7 +5053,7 @@ bool QuicConnection::WritePacketUsingWriter(
           sent_packet_manager_.unacked_packets()
               .rbegin()
               ->retransmittable_frames,
-          packet->nonretransmittable_frames, packet_send_time);
+          packet->nonretransmittable_frames, packet_send_time, writer_batch_id);
     }
   }
 
@@ -5152,25 +5154,13 @@ void QuicConnection::StartEffectivePeerMigration(AddressChangeType type) {
         << "EffectivePeerMigration started without address change.";
     return;
   }
-  if (GetQuicReloadableFlag(
-          quic_flush_pending_frames_and_padding_bytes_on_migration)) {
-    QUIC_RELOADABLE_FLAG_COUNT(
-        quic_flush_pending_frames_and_padding_bytes_on_migration);
-    // There could be pending NEW_TOKEN_FRAME triggered by non-probing
-    // PATH_RESPONSE_FRAME in the same packet or pending padding bytes in the
-    // packet creator.
-    packet_creator_.FlushCurrentPacket();
-    packet_creator_.SendRemainingPendingPadding();
-    if (!connected_) {
-      return;
-    }
-  } else {
-    if (packet_creator_.HasPendingFrames()) {
-      packet_creator_.FlushCurrentPacket();
-      if (!connected_) {
-        return;
-      }
-    }
+  // There could be pending NEW_TOKEN_FRAME triggered by non-probing
+  // PATH_RESPONSE_FRAME in the same packet or pending padding bytes in the
+  // packet creator.
+  packet_creator_.FlushCurrentPacket();
+  packet_creator_.SendRemainingPendingPadding();
+  if (!connected_) {
+    return;
   }
 
   // Action items:
@@ -5489,10 +5479,13 @@ bool QuicConnection::UpdatePacketContent(QuicFrameType type) {
     if (type == PADDING_FRAME &&
         current_packet_content_ == FIRST_FRAME_IS_PING) {
       current_packet_content_ = SECOND_FRAME_IS_PADDING;
-      QUIC_CODE_COUNT(gquic_padded_ping_received);
+      QUIC_CODE_COUNT_N(gquic_padded_ping_received, 1, 2);
       if (perspective_ == Perspective::IS_SERVER) {
         is_current_packet_connectivity_probing_ =
             current_effective_peer_migration_type_ != NO_CHANGE;
+        if (is_current_packet_connectivity_probing_) {
+          QUIC_CODE_COUNT_N(gquic_padded_ping_received, 2, 2);
+        }
         QUIC_DLOG_IF(INFO, is_current_packet_connectivity_probing_)
             << ENDPOINT
             << "Detected connectivity probing packet. "
@@ -6751,21 +6744,6 @@ void QuicConnection::RetirePeerIssuedConnectionIdsNoLongerOnPath() {
   }
 }
 
-void QuicConnection::RetirePeerIssuedConnectionIdsOnPathValidationFailure() {
-  // The alarm to retire connection IDs no longer on paths is scheduled at the
-  // end of writing and reading packet. On path validation failure, there could
-  // be no packet to write or read. Hence the retirement alarm for the
-  // connection ID associated with the failed path needs to be proactively
-  // scheduled here.
-  if (GetQuicReloadableFlag(
-          quic_retire_cid_on_reverse_path_validation_failure) ||
-      perspective_ == Perspective::IS_CLIENT) {
-    QUIC_RELOADABLE_FLAG_COUNT(
-        quic_retire_cid_on_reverse_path_validation_failure);
-    RetirePeerIssuedConnectionIdsNoLongerOnPath();
-  }
-}
-
 bool QuicConnection::MigratePath(const QuicSocketAddress& self_address,
                                  const QuicSocketAddress& peer_address,
                                  QuicPacketWriter* writer, bool owns_writer) {
@@ -6837,7 +6815,7 @@ void QuicConnection::OnPathValidationFailureAtClient(
     mutable_stats().failed_to_validate_server_preferred_address = true;
   }
 
-  RetirePeerIssuedConnectionIdsOnPathValidationFailure();
+  RetirePeerIssuedConnectionIdsNoLongerOnPath();
 }
 
 QuicConnectionId QuicConnection::GetOneActiveServerConnectionId() const {
@@ -7190,7 +7168,7 @@ void QuicConnection::ReversePathValidationResultDelegate::
     QUIC_CODE_COUNT_N(quic_kick_off_client_address_validation, 6, 6);
     connection_->alternative_path_.Clear();
   }
-  connection_->RetirePeerIssuedConnectionIdsOnPathValidationFailure();
+  connection_->RetirePeerIssuedConnectionIdsNoLongerOnPath();
 }
 
 QuicConnection::ScopedRetransmissionTimeoutIndicator::

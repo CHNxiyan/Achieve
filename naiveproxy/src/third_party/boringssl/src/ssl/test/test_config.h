@@ -26,6 +26,8 @@
 
 struct TestConfig {
   int port = 0;
+  bool ipv6 = false;
+  uint64_t shim_id = 0;
   bool is_server = false;
   bool is_dtls = false;
   bool is_quic = false;
@@ -197,8 +199,7 @@ struct TestConfig {
   bool fips_202205 = false;
   bool wpa_202304 = false;
 
-  int argc;
-  char **argv;
+  std::vector<const char*> handshaker_args;
 
   bssl::UniquePtr<SSL_CTX> SetupCtx(SSL_CTX *old_ctx) const;
 

@@ -2,18 +2,11 @@
 
 use log::trace;
 use shadowsocks::{dns_resolver::DnsResolver, net::ConnectOpts};
-#[cfg(feature = "trust-dns")]
-use trust_dns_resolver::config::ResolverOpts;
 
 use crate::config::DnsConfig;
 
 #[allow(unused_variables, dead_code)]
-pub async fn build_dns_resolver(
-    dns: DnsConfig,
-    ipv6_first: bool,
-    dns_cache_size: Option<usize>,
-    connect_opts: &ConnectOpts,
-) -> Option<DnsResolver> {
+pub async fn build_dns_resolver(dns: DnsConfig, ipv6_first: bool, connect_opts: &ConnectOpts) -> Option<DnsResolver> {
     match dns {
         DnsConfig::System => {
             #[cfg(feature = "trust-dns")]
@@ -30,14 +23,7 @@ pub async fn build_dns_resolver(
                 };
 
                 if !force_system_builtin {
-                    let mut opts_opt = None;
-                    if let Some(dns_cache_size) = dns_cache_size {
-                        let mut opts = ResolverOpts::default();
-                        opts.cache_size = dns_cache_size;
-                        opts_opt = Some(opts);
-                    }
-
-                    return match DnsResolver::trust_dns_system_resolver(opts_opt, connect_opts.clone()).await {
+                    return match DnsResolver::trust_dns_system_resolver(ipv6_first).await {
                         Ok(r) => Some(r),
                         Err(err) => {
                             warn!(
@@ -55,27 +41,18 @@ pub async fn build_dns_resolver(
             None
         }
         #[cfg(feature = "trust-dns")]
-        DnsConfig::TrustDns(dns) => {
-            let mut opts_opt = None;
-            if let Some(dns_cache_size) = dns_cache_size {
-                let mut opts = ResolverOpts::default();
-                opts.cache_size = dns_cache_size;
-                opts_opt = Some(opts);
-            }
+        DnsConfig::TrustDns(dns) => match DnsResolver::trust_dns_resolver(dns, ipv6_first).await {
+            Ok(r) => Some(r),
+            Err(err) => {
+                use log::warn;
 
-            match DnsResolver::trust_dns_resolver(dns, opts_opt, connect_opts.clone()).await {
-                Ok(r) => Some(r),
-                Err(err) => {
-                    use log::warn;
-
-                    warn!(
-                        "initialize trust-dns DNS resolver failed, fallback to default system resolver, error: {}",
-                        err
-                    );
-                    None
-                }
+                warn!(
+                    "initialize trust-dns DNS resolver failed, fallback to default system resolver, error: {}",
+                    err
+                );
+                None
             }
-        }
+        },
         #[cfg(feature = "local-dns")]
         DnsConfig::LocalDns(ns) => {
             use crate::local::dns::dns_resolver::DnsResolver as LocalDnsResolver;

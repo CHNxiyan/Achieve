@@ -12,12 +12,14 @@ use std::{
     time::Duration,
 };
 
-use base64::Engine as _;
+use base64::{
+    engine::general_purpose::{STANDARD, URL_SAFE, URL_SAFE_NO_PAD},
+    Engine as _,
+};
 use byte_string::ByteStr;
 use bytes::Bytes;
 use cfg_if::cfg_if;
 use log::error;
-use thiserror::Error;
 use url::{self, Url};
 
 use crate::{
@@ -25,27 +27,6 @@ use crate::{
     plugin::PluginConfig,
     relay::socks5::Address,
 };
-
-const USER_KEY_BASE64_ENGINE: base64::engine::GeneralPurpose = base64::engine::GeneralPurpose::new(
-    &base64::alphabet::STANDARD,
-    base64::engine::GeneralPurposeConfig::new()
-        .with_encode_padding(true)
-        .with_decode_padding_mode(base64::engine::DecodePaddingMode::Indifferent),
-);
-
-const AEAD2022_PASSWORD_BASE64_ENGINE: base64::engine::GeneralPurpose = base64::engine::GeneralPurpose::new(
-    &base64::alphabet::STANDARD,
-    base64::engine::GeneralPurposeConfig::new()
-        .with_encode_padding(true)
-        .with_decode_padding_mode(base64::engine::DecodePaddingMode::Indifferent),
-);
-
-const URL_PASSWORD_BASE64_ENGINE: base64::engine::GeneralPurpose = base64::engine::GeneralPurpose::new(
-    &base64::alphabet::URL_SAFE,
-    base64::engine::GeneralPurposeConfig::new()
-        .with_encode_padding(false)
-        .with_decode_padding_mode(base64::engine::DecodePaddingMode::Indifferent),
-);
 
 /// Shadowsocks server type
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -183,7 +164,7 @@ impl Debug for ServerUser {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("ServerUser")
             .field("name", &self.name)
-            .field("key", &USER_KEY_BASE64_ENGINE.encode(&self.key))
+            .field("key", &STANDARD.encode(&self.key))
             .field("identity_hash", &ByteStr::new(&self.identity_hash))
             .finish()
     }
@@ -209,15 +190,6 @@ impl ServerUser {
         }
     }
 
-    /// Create a user from encoded key
-    pub fn with_encoded_key<N>(name: N, key: &str) -> Result<ServerUser, ServerUserError>
-    where
-        N: Into<String>,
-    {
-        let key = USER_KEY_BASE64_ENGINE.decode(key)?;
-        Ok(ServerUser::new(name, key))
-    }
-
     /// Name of the user
     pub fn name(&self) -> &str {
         self.name.as_str()
@@ -226,11 +198,6 @@ impl ServerUser {
     /// Encryption key of user
     pub fn key(&self) -> &[u8] {
         self.key.as_ref()
-    }
-
-    /// Get Base64 encoded key of user
-    pub fn encoded_key(&self) -> String {
-        USER_KEY_BASE64_ENGINE.encode(&self.key)
     }
 
     /// User's identity hash
@@ -246,14 +213,6 @@ impl ServerUser {
     pub fn clone_identity_hash(&self) -> Bytes {
         self.identity_hash.clone()
     }
-}
-
-/// ServerUser related errors
-#[derive(Debug, Clone, Error)]
-pub enum ServerUserError {
-    /// Invalid User key encoding
-    #[error("{0}")]
-    InvalidKeyEncoding(#[from] base64::DecodeError),
 }
 
 /// Server multi-users manager
@@ -346,7 +305,7 @@ pub struct ServerConfig {
 fn make_derived_key(method: CipherKind, password: &str, enc_key: &mut [u8]) {
     if method.is_aead_2022() {
         // AEAD 2022 password is a base64 form of enc_key
-        match AEAD2022_PASSWORD_BASE64_ENGINE.decode(password) {
+        match STANDARD.decode(password) {
             Ok(v) => {
                 if v.len() != enc_key.len() {
                     panic!(
@@ -407,7 +366,7 @@ where
         make_derived_key(method, upsk, &mut enc_key);
 
         for ipsk in split_iter {
-            match USER_KEY_BASE64_ENGINE.decode(ipsk) {
+            match STANDARD.decode(ipsk) {
                 Ok(v) => {
                     identity_keys.push(Bytes::from(v));
                 }
@@ -541,24 +500,9 @@ impl ServerConfig {
         self.plugin_addr.as_ref()
     }
 
-    /// Get server's TCP external address
-    pub fn tcp_external_addr(&self) -> &ServerAddr {
-        if let Some(plugin) = self.plugin() {
-            if plugin.plugin_mode.enable_tcp() {
-                return self.plugin_addr.as_ref().unwrap_or(&self.addr);
-            }
-        }
-        &self.addr
-    }
-
-    /// Get server's UDP external address
-    pub fn udp_external_addr(&self) -> &ServerAddr {
-        if let Some(plugin) = self.plugin() {
-            if plugin.plugin_mode.enable_udp() {
-                return self.plugin_addr.as_ref().unwrap_or(&self.addr);
-            }
-        }
-        &self.addr
+    /// Get server's external address
+    pub fn external_addr(&self) -> &ServerAddr {
+        self.plugin_addr.as_ref().unwrap_or(&self.addr)
     }
 
     /// Set timeout
@@ -623,7 +567,7 @@ impl ServerConfig {
     /// ```
     pub fn to_qrcode_url(&self) -> String {
         let param = format!("{}:{}@{}", self.method(), self.password(), self.addr());
-        format!("ss://{}", URL_PASSWORD_BASE64_ENGINE.encode(param))
+        format!("ss://{}", URL_SAFE_NO_PAD.encode(param))
     }
 
     /// Get [SIP002](https://github.com/shadowsocks/shadowsocks-org/issues/27) URL
@@ -632,13 +576,13 @@ impl ServerConfig {
             if #[cfg(feature = "aead-cipher-2022")] {
                 let user_info = if !self.method().is_aead_2022() {
                     let user_info = format!("{}:{}", self.method(), self.password());
-                    URL_PASSWORD_BASE64_ENGINE.encode(&user_info)
+                    URL_SAFE_NO_PAD.encode(&user_info)
                 } else {
                     format!("{}:{}", self.method(), percent_encoding::utf8_percent_encode(self.password(), percent_encoding::NON_ALPHANUMERIC))
                 };
             } else {
                 let mut user_info = format!("{}:{}", self.method(), self.password());
-                user_info = URL_PASSWORD_BASE64_ENGINE.encode(&user_info)
+                user_info = URL_SAFE_NO_PAD.encode(&user_info)
             }
         }
 
@@ -688,7 +632,7 @@ impl ServerConfig {
                 None => return Err(UrlParseError::MissingHost),
             };
 
-            let mut decoded_body = match URL_PASSWORD_BASE64_ENGINE.decode(encoded) {
+            let mut decoded_body = match URL_SAFE_NO_PAD.decode(encoded) {
                 Ok(b) => match String::from_utf8(b) {
                     Ok(b) => b,
                     Err(..) => return Err(UrlParseError::InvalidServerAddr),
@@ -741,9 +685,15 @@ impl ServerConfig {
                 // reborrow to fit AsRef<[u8]>
                 let decoded_user_info: &str = &decoded_user_info;
 
-                // Some implementation, like outline,
-                // or those with Python (base64 in Python will still have '=' padding for URL safe encode)
-                let account = match URL_PASSWORD_BASE64_ENGINE.decode(decoded_user_info) {
+                let base64_config = if decoded_user_info.ends_with('=') {
+                    // Some implementation, like outline,
+                    // or those with Python (base64 in Python will still have '=' padding for URL safe encode)
+                    URL_SAFE
+                } else {
+                    URL_SAFE_NO_PAD
+                };
+
+                let account = match base64_config.decode(decoded_user_info) {
                     Ok(account) => match String::from_utf8(account) {
                         Ok(ac) => ac,
                         Err(..) => return Err(UrlParseError::InvalidAuthInfo),
@@ -805,7 +755,6 @@ impl ServerConfig {
                             plugin: p.to_owned(),
                             plugin_opts: vsp.next().map(ToOwned::to_owned),
                             plugin_args: Vec::new(), // SIP002 doesn't have arguments for plugins
-                            plugin_mode: Mode::TcpOnly, // SIP002 doesn't support SIP003u
                         };
                         svrconfig.set_plugin(plugin);
                     }
@@ -1090,14 +1039,13 @@ impl From<PathBuf> for ManagerAddr {
 }
 
 /// Policy for handling replay attack requests
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ReplayAttackPolicy {
     /// Default strategy based on protocol
     ///
     /// SIP022 (AEAD-2022): Reject
     /// SIP004 (AEAD): Ignore
     /// Stream: Ignore
-    #[default]
     Default,
     /// Ignore it completely
     Ignore,
@@ -1105,6 +1053,12 @@ pub enum ReplayAttackPolicy {
     Detect,
     /// Try to detect replay attack and reject the request
     Reject,
+}
+
+impl Default for ReplayAttackPolicy {
+    fn default() -> ReplayAttackPolicy {
+        ReplayAttackPolicy::Default
+    }
 }
 
 impl Display for ReplayAttackPolicy {

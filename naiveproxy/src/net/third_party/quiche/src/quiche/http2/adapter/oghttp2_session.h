@@ -75,10 +75,16 @@ class QUICHE_EXPORT OgHttp2Session : public Http2Session,
     // If true, validates header field names and values according to RFC 7230
     // and RFC 7540.
     bool validate_http_headers = true;
+    // If true, validate the `:path` pseudo-header according to RFC 3986
+    // Section 3.3.
+    bool validate_path = false;
     // If true, allows the '#' character in request paths, even though this
     // contradicts RFC 3986 Section 3.3.
     // TODO(birenroy): Flip the default value to false.
     bool allow_fragment_in_path = true;
+    // If true, allows different values for `host` and `:authority` headers to
+    // be present in request headers.
+    bool allow_different_host_and_authority = false;
   };
 
   OgHttp2Session(Http2VisitorInterface& visitor, Options options);

@@ -34,6 +34,7 @@ class NaiveProxyDelegate : public ProxyDelegate {
   ~NaiveProxyDelegate() override;
 
   void OnResolveProxy(const GURL& url,
+                      const GURL& top_frame_url,
                       const std::string& method,
                       const ProxyRetryInfoMap& proxy_retry_info,
                       ProxyInfo* result) override {}

@@ -15,22 +15,34 @@ QUIC_FLAG(quic_reloadable_flag_quic_testonly_default_true, true)
 QUIC_FLAG(quic_restart_flag_quic_testonly_default_false, false)
 // A testonly restart flag that will always default to true.
 QUIC_FLAG(quic_restart_flag_quic_testonly_default_true, true)
+// If enabled and a BSUS connection is received, blocks server connections until SETTINGS frame is received.
+QUIC_FLAG(quic_reloadable_flag_quic_block_until_settings_received_copt, false)
 // If trrue, early return before write control frame in OnCanWrite() if the connection is already closed.
 QUIC_FLAG(quic_reloadable_flag_quic_no_write_control_frame_upon_connection_close, true)
+// If true, HTTP/3 client will allow host header in HTTP/3 response.
+QUIC_FLAG(quic_reloadable_flag_quic_allow_host_header_in_response, true)
+// If true, QUIC BBR2 will ignore non-positive RTT samples.
+QUIC_FLAG(quic_reloadable_flag_quic_bbr2_ignore_bad_rtt_sample, true)
 // If true, QUIC server will not respond to gQUIC probing packet(PING + PADDING) but treat it as a regular packet.
 QUIC_FLAG(quic_reloadable_flag_quic_ignore_gquic_probing, false)
 // If true, QUIC will default enable MTU discovery at server, with a target of 1450 bytes.
 QUIC_FLAG(quic_reloadable_flag_quic_enable_mtu_discovery_at_server, false)
 // If true, QuicGsoBatchWriter will support release time if it is available and the process has the permission to do so.
 QUIC_FLAG(quic_restart_flag_quic_support_release_time_for_gso, false)
+// If true, QuicReceivedPacketManager will trim ack ranges when packet is received.
+QUIC_FLAG(quic_reloadable_flag_quic_rpm_trim_ack_ranges_early, true)
 // If true, ack frequency frame can be sent from server to client.
 QUIC_FLAG(quic_reloadable_flag_quic_can_send_ack_frequency, true)
 // If true, allow client to enable BBRv2 on server via connection option \'B2ON\'.
 QUIC_FLAG(quic_reloadable_flag_quic_allow_client_enabled_bbr_v2, true)
 // If true, an endpoint does not detect path degrading or blackholing until handshake gets confirmed.
 QUIC_FLAG(quic_reloadable_flag_quic_no_path_degrading_before_handshake_confirmed, true)
+// If true, check connected at the beginning of TlsHandshaker::SetReadSecret.
+QUIC_FLAG(quic_reloadable_flag_quic_check_connected_before_set_read_secret, false)
+// If true, clear QuicSpdyStreamBodyManager in QuicSpdyStream::CloseReadSide().
+QUIC_FLAG(quic_reloadable_flag_quic_clear_body_manager, true)
 // If true, consider write blocked when destination CID is required but missing on the default path.
-QUIC_FLAG(quic_reloadable_flag_quic_write_is_blocked_when_cid_is_missing, false)
+QUIC_FLAG(quic_reloadable_flag_quic_write_is_blocked_when_cid_is_missing, true)
 // If true, default-enable 5RTO blachole detection.
 QUIC_FLAG(quic_reloadable_flag_quic_default_enable_5rto_blackhole_detection2, true)
 // If true, disable QUIC version Q046.
@@ -51,12 +63,10 @@ QUIC_FLAG(quic_reloadable_flag_quic_discard_initial_packet_with_key_dropped, tru
 QUIC_FLAG(quic_reloadable_flag_quic_do_not_write_when_no_client_cid_available, true)
 // If true, enable server retransmittable on wire PING.
 QUIC_FLAG(quic_reloadable_flag_quic_enable_server_on_wire_ping, true)
-// If true, flush pending frames as well as pending padding bytes on connection migration.
-QUIC_FLAG(quic_reloadable_flag_quic_flush_pending_frames_and_padding_bytes_on_migration, true)
 // If true, include stream information in idle timeout connection close detail.
 QUIC_FLAG(quic_reloadable_flag_quic_add_stream_info_to_idle_close_detail, true)
 // If true, reject or send error response code upon receiving invalid request or response headers.
-QUIC_FLAG(quic_reloadable_flag_quic_act_upon_invalid_header, false)
+QUIC_FLAG(quic_reloadable_flag_quic_act_upon_invalid_header, true)
 // If true, remove the non-initial burst in QUIC PacingSender.
 QUIC_FLAG(quic_reloadable_flag_quic_pacing_remove_non_initial_burst, false)
 // If true, require handshake confirmation for QUIC connections, functionally disabling 0-rtt handshakes.
@@ -65,20 +75,14 @@ QUIC_FLAG(quic_reloadable_flag_quic_require_handshake_confirmation, false)
 QUIC_FLAG(quic_reloadable_flag_quic_priority_respect_incremental, false)
 // If true, round-robin stream writes instead of batching in QuicWriteBlockedList.
 QUIC_FLAG(quic_reloadable_flag_quic_disable_batch_write, false)
-// If true, server proactively retires client issued connection ID on reverse path validation failure. 
-QUIC_FLAG(quic_reloadable_flag_quic_retire_cid_on_reverse_path_validation_failure, true)
 // If true, server sends bandwidth eastimate when network is idle for a while.
 QUIC_FLAG(quic_restart_flag_quic_enable_sending_bandwidth_estimate_when_network_idle_v2, true)
 // If true, set burst token to 2 in cwnd bootstrapping experiment.
 QUIC_FLAG(quic_reloadable_flag_quic_conservative_bursts, false)
-// If true, unacked QPACK entries with no references will not be evicted.
-QUIC_FLAG(quic_reloadable_flag_quic_do_not_evict_unacked_entry, true)
 // If true, use BBRv2 as the default congestion controller. Takes precedence over --quic_default_to_bbr.
 QUIC_FLAG(quic_reloadable_flag_quic_default_to_bbr_v2, false)
 // If true, use a LRU cache to record client addresses of packets received on server\'s original address.
 QUIC_FLAG(quic_reloadable_flag_quic_use_received_client_addresses_cache, true)
-// If true, use next_connection_id_sequence_number to validate retired cid number.
-QUIC_FLAG(quic_reloadable_flag_quic_check_retire_cid_with_next_cid_sequence_number, true)
 // If true, uses conservative cwnd gain and pacing gain when cwnd gets bootstrapped.
 QUIC_FLAG(quic_reloadable_flag_quic_conservative_cwnd_and_pacing_gains, false)
 // If true, when TicketCrypter fails to encrypt a session ticket, quic::TlsServerHandshaker will send a placeholder ticket, instead of an empty one, to the client.

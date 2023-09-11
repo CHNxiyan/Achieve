@@ -14,13 +14,9 @@
 ^buildtools/third_party/eu-strip/bin/eu-strip
 ^buildtools/third_party/libc++/BUILD.gn
 ^buildtools/third_party/libc++/__config_site
-^buildtools/third_party/libc++/trunk/include
-^buildtools/third_party/libc++/trunk/src
 ^buildtools/third_party/libc++abi/BUILD.gn
 ^buildtools/third_party/libc++abi/cxa_demangle_stub.cc
-^buildtools/third_party/libc++abi/trunk/include
-^buildtools/third_party/libc++abi/trunk/src
-^buildtools/third_party/libunwind
+^buildtools/third_party/libunwind/BUILD.gn
 ^chrome/VERSION
 ^chrome/android/profiles/newest.txt
 ^chrome/app/theme/chromium/BRANDING
@@ -50,7 +46,10 @@
 ^third_party/googletest/BUILD.gn
 ^third_party/googletest/src/googletest/include/gtest/gtest_prod.h
 ^third_party/icu/config.gni
+^third_party/libc++
+^third_party/libc++abi
 ^third_party/libevent
+^third_party/libunwind
 ^third_party/lss/linux_syscall_support.h
 ^third_party/modp_b64
 ^third_party/nasm
@@ -60,6 +59,7 @@
 ^third_party/protobuf/proto_sources.gni
 ^third_party/protobuf/src
 ^third_party/zlib
+^third_party/zstd
 ^tools/cfi
 ^tools/clang/scripts/update.py
 ^tools/diagnosis
