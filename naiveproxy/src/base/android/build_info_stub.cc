@@ -51,7 +51,6 @@ BuildInfo::BuildInfo(const std::vector<std::string>& params)
       gms_version_code_(""),
       installer_package_name_(""),
       abi_name_(""),
-      firebase_app_id_(""),
       custom_themes_(""),
       resources_version_(""),
       target_sdk_version_(0),

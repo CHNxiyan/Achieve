@@ -45,17 +45,17 @@ if [ ! -f gn/out/gn ]; then
   rm gn.zip
 fi
 
-if [ "$USE_ANDROID_NDK" -a ! -d third_party/android_toolchain ]; then
+if [ "$USE_ANDROID_NDK" -a ! -d third_party/android_toolchain/ndk ]; then
   # https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
   android_ndk_version=$(grep 'default_android_ndk_version = ' build/config/android/config.gni | cut -d'"' -f2)
   curl -LO https://dl.google.com/android/repository/android-ndk-$android_ndk_version-linux.zip
   unzip android-ndk-$android_ndk_version-linux.zip
-  mkdir -p third_party/android_toolchain
+  mkdir -p third_party/android_toolchain/ndk
   cd android-ndk-$android_ndk_version
-  cp -r --parents sources/android/cpufeatures ../third_party/android_toolchain
-  cp -r --parents toolchains/llvm/prebuilt ../third_party/android_toolchain
+  cp -r --parents sources/android/cpufeatures ../third_party/android_toolchain/ndk
+  cp -r --parents toolchains/llvm/prebuilt ../third_party/android_toolchain/ndk
   cd ..
-  cd third_party/android_toolchain
+  cd third_party/android_toolchain/ndk
   find toolchains -type f -regextype egrep \! -regex \
     '.*(lib(atomic|gcc|gcc_real|compiler_rt-extras|android_support|unwind).a|crt.*o|lib(android|c|dl|log|m).so|usr/local.*|usr/include.*)' -delete
   cd ../..
