@@ -9,6 +9,7 @@ import (
 
 	"github.com/Dreamacro/clash/adapter/inbound"
 	N "github.com/Dreamacro/clash/common/net"
+	quicCC "github.com/Dreamacro/clash/common/quicCC"
 	"github.com/Dreamacro/clash/common/utils"
 	C "github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/transport/socks5"
@@ -47,7 +48,7 @@ func (s *Server) Serve() error {
 		if err != nil {
 			return err
 		}
-		common.SetCongestionController(conn, s.CongestionController, s.CWND)
+		quicCC.SetCongestionController(conn, s.CongestionController, s.CWND)
 		h := &serverHandler{
 			Server:   s,
 			quicConn: conn,

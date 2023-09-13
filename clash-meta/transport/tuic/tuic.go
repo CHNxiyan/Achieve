@@ -1,6 +1,7 @@
 package tuic
 
 import (
+	quicCC "github.com/Dreamacro/clash/common/quicCC"
 	C "github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/transport/tuic/common"
 	v4 "github.com/Dreamacro/clash/transport/tuic/v4"
@@ -24,8 +25,8 @@ type DialFunc = common.DialFunc
 
 var TooManyOpenStreams = common.TooManyOpenStreams
 
-const DefaultStreamReceiveWindow = common.DefaultStreamReceiveWindow
-const DefaultConnectionReceiveWindow = common.DefaultConnectionReceiveWindow
+const DefaultStreamReceiveWindow = quicCC.DefaultStreamReceiveWindow
+const DefaultConnectionReceiveWindow = quicCC.DefaultConnectionReceiveWindow
 
 var GenTKN = v4.GenTKN
 var PacketOverHeadV4 = v4.PacketOverHead

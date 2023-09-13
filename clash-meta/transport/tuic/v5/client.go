@@ -15,6 +15,7 @@ import (
 	atomic2 "github.com/Dreamacro/clash/common/atomic"
 	N "github.com/Dreamacro/clash/common/net"
 	"github.com/Dreamacro/clash/common/pool"
+	quicCC "github.com/Dreamacro/clash/common/quicCC"
 	C "github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/log"
 	"github.com/Dreamacro/clash/transport/tuic/common"
@@ -90,7 +91,7 @@ func (t *clientImpl) getQuicConn(ctx context.Context, dialer C.Dialer, dialFn co
 		return nil, err
 	}
 
-	common.SetCongestionController(quicConn, t.CongestionController, t.CWND)
+	quicCC.SetCongestionController(quicConn, t.CongestionController, t.CWND)
 
 	go func() {
 		_ = t.sendAuthentication(quicConn)

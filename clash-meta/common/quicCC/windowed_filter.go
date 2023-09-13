@@ -1,4 +1,4 @@
-package congestion
+package quicCC
 
 // WindowedFilter Use the following to construct a windowed filter object of type T.
 // For example, a min filter using QuicTime as the time type:
