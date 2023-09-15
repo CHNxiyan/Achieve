@@ -1,4 +1,4 @@
-package quicCC
+package congestion
 
 import (
 	"github.com/metacubex/quic-go"
@@ -41,8 +41,4 @@ func SetCongestionController(quicConn quic.Connection, cc string, cwnd int) {
 			),
 		)
 	}
-}
-
-func UseBrutal(conn quic.Connection, tx uint64) {
-	conn.SetCongestionControl(NewBrutalSender(tx))
 }

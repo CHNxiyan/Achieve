@@ -19,12 +19,12 @@ import (
 	"github.com/metacubex/quic-go/congestion"
 	M "github.com/sagernet/sing/common/metadata"
 
+	netCongestion "github.com/Dreamacro/clash/common/net/congestion"
 	"github.com/Dreamacro/clash/component/dialer"
 	"github.com/Dreamacro/clash/component/proxydialer"
 	tlsC "github.com/Dreamacro/clash/component/tls"
 	C "github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/log"
-	hyCongestion "github.com/Dreamacro/clash/transport/hysteria/congestion"
 	"github.com/Dreamacro/clash/transport/hysteria/core"
 	"github.com/Dreamacro/clash/transport/hysteria/obfs"
 	"github.com/Dreamacro/clash/transport/hysteria/pmtud_fix"
@@ -246,7 +246,7 @@ func NewHysteria(option HysteriaOption) (*Hysteria, error) {
 	}
 	client, err := core.NewClient(
 		addr, ports, option.Protocol, auth, tlsConfig, quicConfig, clientTransport, up, down, func(refBPS uint64) congestion.CongestionControl {
-			return hyCongestion.NewBrutalSender(congestion.ByteCount(refBPS))
+			return netCongestion.NewBrutalSender(refBPS)
 		}, obfuscator, hopInterval, option.FastOpen,
 	)
 	if err != nil {

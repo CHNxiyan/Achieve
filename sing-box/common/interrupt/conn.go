@@ -18,7 +18,7 @@ func MarkAsInternal(conn any) {
 
 type Conn struct {
 	net.Conn
-	manager *Group
+	group   *Group
 	element *list.Element[*groupConnItem]
 }
 
@@ -27,9 +27,9 @@ type Conn struct {
 }*/
 
 func (c *Conn) Close() error {
-	c.manager.access.Lock()
-	defer c.manager.access.Unlock()
-	c.manager.connections.Remove(c.element)
+	c.group.access.Lock()
+	defer c.group.access.Unlock()
+	c.group.connections.Remove(c.element)
 	return c.Conn.Close()
 }
 
@@ -47,7 +47,7 @@ func (c *Conn) Upstream() any {
 
 type PacketConn struct {
 	net.PacketConn
-	manager *Group
+	group   *Group
 	element *list.Element[*groupConnItem]
 }
 
@@ -56,9 +56,9 @@ type PacketConn struct {
 }*/
 
 func (c *PacketConn) Close() error {
-	c.manager.access.Lock()
-	defer c.manager.access.Unlock()
-	c.manager.connections.Remove(c.element)
+	c.group.access.Lock()
+	defer c.group.access.Unlock()
+	c.group.connections.Remove(c.element)
 	return c.PacketConn.Close()
 }
 

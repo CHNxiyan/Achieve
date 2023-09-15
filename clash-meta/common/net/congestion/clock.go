@@ -1,4 +1,4 @@
-package quicCC
+package congestion
 
 import "time"
 
