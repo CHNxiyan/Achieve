@@ -7,6 +7,7 @@
 //
 
 import Cocoa
+import Alamofire
 
 extension UserDefaults {
     enum KEY: String {
@@ -471,4 +472,57 @@ func killProcess(processIdentifier: pid_t) {
     } else {
         NSLog("killProcess: Successfully killed process with identifier \(processIdentifier)")
     }
+}
+
+func getProxyUrlSessionConfigure() -> URLSessionConfiguration {
+    // Create a URLSessionConfiguration with proxy settings
+    let configuration = URLSessionConfiguration.default
+    // v2ray is running
+    if UserDefaults.getBool(forKey: .v2rayTurnOn) {
+        let proxyHost = "127.0.0.1"
+        let proxyPort = getHttpProxyPort()
+        // set proxies
+        configuration.connectionProxyDictionary = [
+            kCFNetworkProxiesHTTPEnable as AnyHashable: true,
+            kCFNetworkProxiesHTTPProxy as AnyHashable: proxyHost,
+            kCFNetworkProxiesHTTPPort as AnyHashable: proxyPort,
+            kCFNetworkProxiesHTTPSEnable as AnyHashable: true,
+            kCFNetworkProxiesHTTPSProxy as AnyHashable: proxyHost,
+            kCFNetworkProxiesHTTPSPort as AnyHashable: proxyPort,
+        ]
+    }
+    configuration.timeoutIntervalForRequest = 30 // Set your desired timeout interval in seconds
+
+    return configuration
+}
+
+func getProxyUrlSessionConfigure(httpProxyPort: uint16) -> URLSessionConfiguration {
+    // Create a URLSessionConfiguration with proxy settings
+    let configuration = URLSessionConfiguration.default
+    let proxyHost = "127.0.0.1"
+    let proxyPort = getHttpProxyPort()
+    // set proxies
+    configuration.connectionProxyDictionary = [
+        kCFNetworkProxiesHTTPEnable as AnyHashable: true,
+        kCFNetworkProxiesHTTPProxy as AnyHashable: proxyHost,
+        kCFNetworkProxiesHTTPPort as AnyHashable: proxyPort,
+        kCFNetworkProxiesHTTPSEnable as AnyHashable: true,
+        kCFNetworkProxiesHTTPSProxy as AnyHashable: proxyHost,
+        kCFNetworkProxiesHTTPSPort as AnyHashable: proxyPort,
+    ]
+    configuration.timeoutIntervalForRequest = 30 // Set your desired timeout interval in seconds
+    return configuration
+}
+
+
+func getHttpProxyPort() -> Int {
+    return Int(UserDefaults.get(forKey: .localHttpPort) ?? "1087") ?? 1087
+}
+
+func getSocksProxyPort() -> Int {
+    return Int(UserDefaults.get(forKey: .localHttpPort) ?? "1080") ?? 1080
+}
+
+func getPacPort() -> Int {
+    return Int(UserDefaults.get(forKey: .localPacPort) ?? "11085") ?? 11085
 }

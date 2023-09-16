@@ -20,7 +20,7 @@ class VmessUri {
     var network: String = "tcp"
     var netHost: String = ""
     var netPath: String = ""
-    var tls: String = ""
+    var tls: String = "" // none|tls|xlts
     var type: String = "none" // 伪装类型
     var uplinkCapacity: Int = 50
     var downlinkCapacity: Int = 20
@@ -91,7 +91,7 @@ class VmessUri {
         // params
         let params = paramsStr.components(separatedBy: "&")
         for item in params {
-            var param = item.components(separatedBy: "=")
+            let param = item.components(separatedBy: "=")
             if param.count < 2 {
                 continue
             }
@@ -219,7 +219,6 @@ class VmessUri {
         self.fp = json["fp"].stringValue
         // type:伪装类型（none\http\srtp\utp\wechat-video）
         self.type = json["type"].stringValue
-        print("json", json)
     }
 }
 
@@ -336,6 +335,9 @@ class ShadowsockUri {
 }
 
 // link: https://coderschool.cn/2498.html
+// ssr://server:port:protocol:method:obfs:password_base64/?params_base64
+// 上面的链接的不同之处在于 password_base64 和 params_base64 ，顾名思义，password_base64 就是密码被 base64编码 后的字符串，而 params_base64 则是协议参数、混淆参数、备注及Group对应的参数值被 base64编码 后拼接而成的字符串。
+
 class ShadowsockRUri: ShadowsockUri {
 
     override func Init(url: URL) {

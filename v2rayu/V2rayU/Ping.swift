@@ -13,8 +13,11 @@ import SwiftyJSON
 var inPing = false
 var fastV2rayName = ""
 var fastV2raySpeed = 5
+var ping = PingSpeed()
+let second: Double = 1000000
 
-class PingSpeed: NSObject, URLSessionDataDelegate {
+
+class PingSpeed: NSObject {
     var pingServers: [V2rayItem] = []
     var serverLen: Int = 0
 
@@ -48,13 +51,17 @@ class PingSpeed: NSObject, URLSessionDataDelegate {
         menuController.statusMenu.item(withTag: 1)?.title = pingTip
         // in ping
         inPing = true
+        let pingQueue = DispatchQueue.init(label: "pingQueue") // 串行队列
         // use thread
         let thread = Thread {
             // ping
             self.serverLen = itemList.count
+
             for item in itemList {
-                // run ping by sync queue
-                self.pingEachServer(item: item)
+                pingQueue.async {
+                    // run ping by async queue
+                    self.pingEachServer(item: item)
+                }
             }
             // refresh menu
             self.refreshStatusMenu()
@@ -87,16 +94,20 @@ class PingSpeed: NSObject, URLSessionDataDelegate {
             menuController.showServers()
             // reload config
             if menuController.configWindow != nil {
-                menuController.configWindow.serversTableView.reloadData()
+                // fix: must be used from main thread only
+                DispatchQueue.main.async {
+                    menuController.configWindow.serversTableView.reloadData()
+                }
             }
         }
     }
 
     func doPing(item: V2rayItem) {
-        let (_, bindPort) = getUsablePort(port: 11081)
+        let randomInt = Int.random(in: 9000...36500)
+        let (_, bindPort) = getUsablePort(port: uint16(randomInt))
 
         NSLog("doPing: \(item.name)-\(item.remark) - \(bindPort)")
-        let jsonFile = AppHomePath + "/config_ping.json"
+        let jsonFile = AppHomePath + "/.config_ping.\(item.name).json"
 
         // create v2ray config file
         createV2rayJsonFileForPing(item: item, bindPort: bindPort, jsonFile: jsonFile)
@@ -106,6 +117,8 @@ class PingSpeed: NSObject, URLSessionDataDelegate {
         // can't use `/bin/bash -c cmd...` otherwize v2ray process will become a ghost process
         process.launchPath = v2rayCoreFile
         process.arguments = ["-config", jsonFile]
+        process.standardError = nil
+        process.standardOutput = nil
         process.terminationHandler = { _process in
             if _process.terminationStatus != EXIT_SUCCESS {
                 NSLog("process is not kill \(_process.description) -  \(_process.processIdentifier) - \(_process.terminationStatus)")
@@ -115,12 +128,23 @@ class PingSpeed: NSObject, URLSessionDataDelegate {
         process.launch()
         
         // sleep for wait v2ray process instanse
-        let second: Double = 1000000
-        usleep(useconds_t(0.25 * second))
+        usleep(useconds_t(1 * second))
 
-        // sync process
-        checkProxySpent(item: item, bindPort: bindPort)
+        // async process
+        // set URLSessionDataDelegate
+        let metric = PingMetrics()
+        metric.ping = item
 
+        // url request
+        let session = URLSession(configuration: getProxyUrlSessionConfigure(httpProxyPort: bindPort), delegate: metric, delegateQueue: nil)
+        let url = URL(string: "http://www.google.com/generate_204")!
+        let task = session.dataTask(with: URLRequest(url: url)){(data: Data?, response: URLResponse?, error: Error?) in
+            self.pingEnd(process: process, jsonFile: jsonFile, bindPort: bindPort)
+        }
+        task.resume()
+    }
+    
+    func pingEnd(process: Process, jsonFile:String, bindPort: UInt16) {
         // exit process
         if process.isRunning {
             // terminate v2ray process
@@ -132,7 +156,13 @@ class PingSpeed: NSObject, URLSessionDataDelegate {
         closePort(port: bindPort)
         
         // delete config
-        try? FileManager.default.removeItem(at: URL(fileURLWithPath: jsonFile))
+        do {
+            let jsonFilePath = URL(fileURLWithPath: jsonFile)
+            try? FileManager.default.removeItem(at: jsonFilePath)
+        }
+        
+        // refresh server
+        self.refreshStatusMenu()
     }
 
     func createV2rayJsonFileForPing(item: V2rayItem, bindPort: UInt16, jsonFile: String) {
@@ -163,47 +193,10 @@ class PingSpeed: NSObject, URLSessionDataDelegate {
             NSLog("save json file fail: \(error)")
         }
     }
-
-    func checkProxySpent(item: V2rayItem, bindPort: UInt16) {
-        let group = DispatchGroup()
-        group.enter()
-
-        let proxyHost = "127.0.0.1"
-        let proxyPort = bindPort
-
-        // Create a URLSessionConfiguration with proxy settings
-        let configuration = URLSessionConfiguration.default
-        configuration.connectionProxyDictionary = [
-            kCFNetworkProxiesHTTPEnable as AnyHashable: true,
-            kCFNetworkProxiesHTTPProxy as AnyHashable: proxyHost,
-            kCFNetworkProxiesHTTPPort as AnyHashable: proxyPort,
-            kCFNetworkProxiesHTTPSEnable as AnyHashable: true,
-            kCFNetworkProxiesHTTPSProxy as AnyHashable: proxyHost,
-            kCFNetworkProxiesHTTPSPort as AnyHashable: proxyPort,
-        ]
-        configuration.timeoutIntervalForRequest = 2 // Set your desired timeout interval in seconds
-
-        // replace item ping to default
-        item.speed = "-1ms"
-        
-        // set URLSessionDataDelegate
-        let metric = PingMetrics()
-        metric.ping = item
-        metric.group = group
-
-        // url request by DispatchGroup wait
-        let session = URLSession(configuration: configuration, delegate: metric, delegateQueue: nil)
-        let url = URL(string: "http://www.google.com/generate_204")!
-        let task = session.dataTask(with: URLRequest(url: url))
-        task.resume()
-        // wait
-        group.wait()
-    }
 }
 
 class PingMetrics: NSObject, URLSessionDataDelegate {
     var ping: V2rayItem?
-    var group: DispatchGroup = DispatchGroup()
 
     // MARK: - URLSessionDataDelegate
 
@@ -221,8 +214,8 @@ class PingMetrics: NSObject, URLSessionDataDelegate {
             }
         }
         // save
-        ping!.store()
-        // done
-        group.leave()
+        if ping != nil {
+            ping!.store()
+        }
     }
 }

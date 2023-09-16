@@ -178,8 +178,8 @@ class V2rayServer: NSObject {
         let curName = UserDefaults.get(forKey: .v2rayCurrentServerName)
 
         for item in V2rayServer.v2rayItemList {
-            print("remove item: ", subscribe, item.subscribe)
-            if item.subscribe == subscribe {
+//            print("remove item: ", subscribe, item.subscribe)
+            if item.subscribe == subscribe  && item.url == "" {
                 V2rayItem.remove(name: item.name)
                 // if cuerrent item is default
                 if curName != nil && item.name == curName {
@@ -196,7 +196,10 @@ class V2rayServer: NSObject {
 
         // reload config
         if menuController.configWindow != nil {
-            menuController.configWindow.serversTableView.reloadData()
+            // fix: must be used from main thread only
+            DispatchQueue.main.async {
+                menuController.configWindow.serversTableView.reloadData()
+            }
         }
 
         // refresh server
@@ -224,6 +227,16 @@ class V2rayServer: NSObject {
         return false
     }
 
+    // check url is exists
+    static func exist(url: String) -> V2rayItem? {
+        for item in self.v2rayItemList {
+            if item.url == url {
+                return item
+            }
+        }
+        return nil
+    }
+    
     // get json file url
     static func getJsonFile() -> String? {
 //        return Bundle.main.url(forResource: "unzip", withExtension: "sh")?.path.replacingOccurrences(of: "/unzip.sh", with: "/config.json")
