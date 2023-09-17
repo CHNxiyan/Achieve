@@ -14,7 +14,8 @@ import Yams
 // ----- v2ray subscribe manager -----
 class V2raySubscribe: NSObject {
     static var shared = V2raySubscribe()
-
+    static let lock = NSLock()
+    
     // Initialization
     override init() {
         super.init()
@@ -27,6 +28,10 @@ class V2raySubscribe: NSObject {
 
     // (init) load v2ray subscribe list from UserDefaults
     static func loadConfig() {
+        self.lock.lock()
+        defer {
+            self.lock.unlock()
+        }
         // static reset
         self.v2raySubList = []
 
@@ -228,18 +233,18 @@ class V2raySubItem: NSObject, NSCoding {
 
 // ----- v2ray subscribe  updater -----
 let NOTIFY_UPDATE_SubSync = Notification.Name(rawValue: "NOTIFY_UPDATE_SubSync")
+var inSyncSubscribe = false
 
 class V2raySubSync: NSObject {
-    var isLoading = false
+    var todos: Dictionary = [String: Bool]()
+    let lock = NSLock()
+    let semaphore = DispatchSemaphore(value: 1) // work pool
+
     // sync from Subscribe list
     public func sync() {
-        if self.isLoading {
+        if inSyncSubscribe {
             print("Subscribe in loading ...")
             return
-        }
-        self.isLoading = true
-        defer {
-            self.isLoading = false
         }
         print("sync from Subscribe list")
         V2raySubscribe.loadConfig()
@@ -248,8 +253,14 @@ class V2raySubSync: NSObject {
         if list.count == 0 {
             self.logTip(title: "fail: ", uri: "", informativeText: " please add Subscription Url")
         }
+        // sync queue with DispatchGroup
+        let subQueue = DispatchQueue(label: "subQueue",attributes: .concurrent)
         for item in list {
-            self.dlFromUrl(url: item.url, subscribe: item.name)
+            subQueue.async {
+                self.todos[item.url] = true
+                self.semaphore.wait()
+                self.dlFromUrl(url: item.url, subscribe: item.name)
+            }
         }
     }
 
@@ -258,12 +269,16 @@ class V2raySubSync: NSObject {
 
         guard let reqUrl = URL(string: url) else {
             logTip(title: "loading from : ", uri: "", informativeText: "url is not valid: " + url + "\n\n")
+            self.refreshMenu(url: url)
             return
         }
         
         // url request with proxy
         let session = URLSession(configuration: getProxyUrlSessionConfigure())
         let task = session.dataTask(with: URLRequest(url: reqUrl)){(data: Data?, response: URLResponse?, error: Error?) in
+            defer {
+                self.refreshMenu(url: url)
+            }
             if error != nil {
                 self.logTip(title: "loading fail: ", uri: url, informativeText: "error: \(String(describing: error))")
             } else {
@@ -292,101 +307,53 @@ class V2raySubSync: NSObject {
         // remove old v2ray servers by subscribe
         V2rayServer.remove(subscribe: subscribe)
 
-        if self.parseYaml(strTmp: strTmp, subscribe: subscribe) {
+        if self.importByYaml(strTmp: strTmp, subscribe: subscribe) {
             return
         }
-        
-        let id: String = String(url.suffix(32));
-
-        let list = strTmp.trimmingCharacters(in: .newlines).components(separatedBy: CharacterSet.newlines)
-        var count = 0
-        for item in list {
-            count += 1
-            if count > 50 {
-                break // limit 50
-            }
-            // import every server
-            if (item.count == 0) {
-                continue;
-            } else {
-                self.importUri(uri: item.trimmingCharacters(in: .whitespacesAndNewlines), subscribe: subscribe, id: id)
+        self.importByNormal(strTmp: strTmp, subscribe: subscribe)
+    }
+    
+    func getOld(subscribe: String) -> [String] {
+        // reload all
+        V2rayServer.loadConfig()
+        // get old
+        var oldList: [String] = []
+        for (_, item) in V2rayServer.list().enumerated() {
+            if item.subscribe == subscribe {
+                oldList.append(item.name)
             }
         }
-        
-        // refresh server
-        menuController.showServers()
-
-        // reload server
-        if menuController.configWindow != nil {
-            // fix: must be used from main thread only
-            DispatchQueue.main.async {
-                menuController.configWindow.serversTableView.reloadData()
-            }
-        }
+        return oldList
     }
 
-    func parseYaml(strTmp: String, subscribe: String) -> Bool {
+    func importByYaml(strTmp: String, subscribe: String) -> Bool {
         // parse clash yaml
         do {
+            let oldList = getOld(subscribe: subscribe)
+            var exists: Dictionary = [String: Bool]()
+            
             let decoder = YAMLDecoder()
             let decoded = try decoder.decode(Clash.self, from: strTmp)
-            // reload all
-            V2rayServer.loadConfig()
-            // get old
-            var oldList: [String] = []
-            for (_, item) in V2rayServer.list().enumerated() {
-                if item.subscribe == subscribe {
-                    oldList.append(item.name)
-                }
-            }
-            // new exits
-            var exists: Dictionary =  [String: Bool]()
             for item in decoded.proxies {
                 if let importUri = importByClash(clash: item) {
-                    if importUri.isValid {
-                        // old share uri
-                        let v2ray = V2rayItem(name: "tmp", remark: item.name, isValid: importUri.isValid, json: importUri.json, url: "", subscribe: subscribe)
-                        let share = ShareUri()
-                        share.qrcode(item: v2ray)
-                        if let v2rayOld = V2rayServer.exist(url: share.uri) {
-                            v2rayOld.json = importUri.json
-                            v2rayOld.isValid = importUri.isValid
-                            v2rayOld.name = item.name
-                            v2rayOld.store()
-                            logTip(title: "success update: ", informativeText: importUri.remark)
-                            exists[v2rayOld.name] = true
-                        } else {
-                            // add server
-                            V2rayServer.add(remark: item.name, json: importUri.json, isValid: true, url: share.uri, subscribe: subscribe)
-                            logTip(title: "success add: ", informativeText: importUri.remark)
-                        }
-                    } else {
-                        logTip(title: "fail: ", informativeText: importUri.error)
+                    importUri.remark = item.name
+                    if let v2rayOld = self.saveImport(importUri: importUri, subscribe: subscribe) {
+                        exists[v2rayOld.name] = true
                     }
                 }
+            }
                 
-                logTip(title: "need remove?: ", informativeText: "\(oldList.count) - \(exists.count)")
+            logTip(title: "need remove?: ", informativeText: "old=\(oldList.count) - new=\(exists.count)")
 
-                // remove not exist
-                for name in oldList {
-                    if exists[name] ?? false {
-                        // delete from v2ray UserDefaults
-                        V2rayItem.remove(name: name)
-                        logTip(title: "remove: ", informativeText: name)
-                    }
+            // remove not exist
+            for name in oldList {
+                if !(exists[name] ?? false) {
+                    // delete from v2ray UserDefaults
+                    V2rayItem.remove(name: name)
+                    logTip(title: "remove: ", informativeText: name)
                 }
             }
             
-            // refresh server
-            menuController.showServers()
-
-            // reload server
-            if menuController.configWindow != nil {
-                // fix: must be used from main thread only
-                DispatchQueue.main.async {
-                    menuController.configWindow.serversTableView.reloadData()
-                }
-            }
             return true
         } catch {
             NSLog("parseYaml \(error)")
@@ -395,23 +362,96 @@ class V2raySubSync: NSObject {
         return false
     }
     
-    func importUri(uri: String, subscribe: String, id: String) {
-        if uri.count == 0 {
-            logTip(title: "fail: ", uri: uri, informativeText: "uri not found")
-            return
-        }
-
-        if let importUri = ImportUri.importUri(uri: uri, id: id) {
-            if importUri.isValid {
-                // add server
-                V2rayServer.add(remark: importUri.remark, json: importUri.json, isValid: true, url: importUri.uri, subscribe: subscribe)
-                logTip(title: "success: ", uri: uri, informativeText: importUri.remark)
-            } else {
-                logTip(title: "fail: ", uri: uri, informativeText: importUri.error)
+    func importByNormal(strTmp: String, subscribe: String)  {
+        let oldList = getOld(subscribe: subscribe)
+        var exists: Dictionary = [String: Bool]()
+        
+        let list = strTmp.trimmingCharacters(in: .newlines).components(separatedBy: CharacterSet.newlines)
+        var count = 0
+        for uri in list {
+            count += 1
+            if count > 50 {
+                break // limit 50
             }
-
-            return
+            // import every server
+            if (uri.count > 0) {
+                let filterUri =  uri.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let importUri = ImportUri.importUri(uri: filterUri,checkExist: false) {
+                    if let v2rayOld = self.saveImport(importUri: importUri, subscribe: subscribe) {
+                        exists[v2rayOld.name] = true
+                    }
+                }
+            }
         }
+        
+        logTip(title: "need remove?: ", informativeText: "old=\(oldList.count) - new=\(exists.count)")
+        
+        // remove not exist
+        for name in oldList {
+            if !(exists[name] ?? false) {
+                // delete from v2ray UserDefaults
+                V2rayItem.remove(name: name)
+                logTip(title: "remove: ", informativeText: name)
+            }
+        }
+        
+    }
+    
+    func refreshMenu(url: String)  {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        semaphore.signal()
+        
+        todos.removeValue(forKey: url)
+
+        if todos.count == 0 {
+            inSyncSubscribe = false
+            usleep(useconds_t(1 * second))
+            do {
+                // refresh server
+                menuController.showServers()
+                // reload server
+                if menuController.configWindow != nil {
+                    // fix: must be used from main thread only
+                    DispatchQueue.main.async {
+                        menuController.configWindow.serversTableView.reloadData()
+                    }
+                }
+                usleep(useconds_t(2 * second))
+                // do ping
+                ping.pingAll()
+            }
+        }
+    }
+    
+    func saveImport(importUri: ImportUri, subscribe: String) -> V2rayItem? {
+        if importUri.isValid {
+            var newUri = importUri.uri
+            // clash has no uri
+            if newUri.count == 0 {
+                // old share uri
+                let v2ray = V2rayItem(name: "tmp", remark: importUri.remark, isValid: importUri.isValid, json: importUri.json, url: "", subscribe: subscribe)
+                let share = ShareUri()
+                share.qrcode(item: v2ray)
+                newUri = share.uri
+            }
+            if let v2rayOld = V2rayServer.exist(url: newUri) {
+                v2rayOld.json = importUri.json
+                v2rayOld.isValid = importUri.isValid
+                v2rayOld.remark = importUri.remark
+                v2rayOld.store()
+                logTip(title: "success update: ", informativeText: importUri.remark)
+                return v2rayOld
+            } else {
+                // add server
+                V2rayServer.add(remark: importUri.remark, json: importUri.json, isValid: true, url: newUri, subscribe: subscribe)
+                logTip(title: "success add: ", informativeText: importUri.remark)
+            }
+        } else {
+            logTip(title: "fail: ", informativeText: importUri.error)
+        }
+        return nil
     }
 
     func logTip(title: String = "", uri: String = "", informativeText: String = "") {

@@ -11,15 +11,18 @@ import SwiftyJSON
 
 // ping and choose fastest v2ray
 var inPing = false
+var inPingCurrent = false
 var fastV2rayName = ""
 var fastV2raySpeed = 5
 var ping = PingSpeed()
 let second: Double = 1000000
-
+let pingURL = URL(string: "http://www.google.com/generate_204")!
 
 class PingSpeed: NSObject {
-    var pingServers: [V2rayItem] = []
-    var serverLen: Int = 0
+    var unpingServers: Dictionary = [String: Bool]()
+    
+    let lock = NSLock()
+    let semaphore = DispatchSemaphore(value: 20) // work pool
 
     func pingAll() {
         NSLog("ping start")
@@ -27,8 +30,10 @@ class PingSpeed: NSObject {
             NSLog("ping inPing")
             return
         }
+        let pskillCmd = "ps aux | grep v2ray | grep '.V2rayU/.config.' | awk '{print $2}' | xargs kill"
+        _ = shell(launchPath: "/bin/bash", arguments: ["-c", pskillCmd])
         fastV2rayName = ""
-        pingServers = []
+        unpingServers = [String: Bool]()
         let itemList = V2rayServer.list()
         if itemList.count == 0 {
             return
@@ -48,72 +53,80 @@ class PingSpeed: NSObject {
                 pingTip = "Ping Speed - 测试中"
             }
         }
-        menuController.statusMenu.item(withTag: 1)?.title = pingTip
+        menuController.setStatusMenuTip(pingTip: pingTip)
         // in ping
         inPing = true
-        let pingQueue = DispatchQueue.init(label: "pingQueue") // 串行队列
-        // use thread
-        let thread = Thread {
-            // ping
-            self.serverLen = itemList.count
-
-            for item in itemList {
-                pingQueue.async {
-                    // run ping by async queue
-                    self.pingEachServer(item: item)
-                }
+        let pingQueue = DispatchQueue(label: "pingQueue", attributes: .concurrent)
+        for item in itemList {
+            unpingServers[item.name] = true
+            pingQueue.async {
+                self.semaphore.wait()
+                // run ping by async queue
+                self.pingEachServer(item: item)
             }
-            // refresh menu
-            self.refreshStatusMenu()
-            NSLog("ping done")
         }
-        thread.name = "pingThread"
-        thread.threadPriority = 1 /// 优先级
-        thread.start()
     }
 
     func pingEachServer(item: V2rayItem) {
         NSLog("ping \(item.name) - \(item.remark)")
-
-        if !item.isValid {
-            pingServers.append(item)
-            return
-        }
         // ping
-        doPing(item: item)
-        // print("finished",message)
-        pingServers.append(item)
-        // refresh menu
-        refreshStatusMenu()
+        PingServer(item: item).doPing()
     }
 
-    func refreshStatusMenu() {
-        if pingServers.count == serverLen {
+    func refreshStatusMenu(item: V2rayItem) {
+        lock.lock()
+        defer { lock.unlock() }
+        
+        semaphore.signal()
+        
+        unpingServers.removeValue(forKey: item.name)
+
+        if unpingServers.count == 0 {
             inPing = false
-            menuController.statusMenu.item(withTag: 1)?.title = "Ping Speed..."
-            menuController.showServers()
-            // reload config
-            if menuController.configWindow != nil {
-                // fix: must be used from main thread only
+            usleep(useconds_t(1 * second))
+            do {
                 DispatchQueue.main.async {
-                    menuController.configWindow.serversTableView.reloadData()
+                    menuController.setStatusMenuTip(pingTip: "Ping Speed...")
+                    menuController.showServers()
+                    // reload config
+                    if menuController.configWindow != nil {
+                        // fix: must be used from main thread only
+                        menuController.configWindow.serversTableView.reloadData()
+                    }
                 }
             }
         }
     }
+}
 
-    func doPing(item: V2rayItem) {
-        let randomInt = Int.random(in: 9000...36500)
-        let (_, bindPort) = getUsablePort(port: uint16(randomInt))
+class PingServer: NSObject, URLSessionDataDelegate {
+    var item: V2rayItem
 
-        NSLog("doPing: \(item.name)-\(item.remark) - \(bindPort)")
-        let jsonFile = AppHomePath + "/.config_ping.\(item.name).json"
+    var bindPort: UInt16 = 0
+    var jsonFile: String = ""
+    var process: Process = Process()
+
+    init(item: V2rayItem) {
+        self.item = item
+        super.init() // can actually be omitted in this example because will happen automatically.
+    }
+
+    func doPing() {
+        if !item.isValid {
+            // refresh servers
+            ping.refreshStatusMenu(item: item)
+            return
+        }
+        let (_, _bindPort) = getUsablePort(port: uint16(Int.random(in: 9000 ... 36500)))
+
+        NSLog("doPing: \(item.name)-\(item.remark) - \(_bindPort)")
+        bindPort = _bindPort
+        jsonFile = AppHomePath + "/.\(item.name).json"
 
         // create v2ray config file
-        createV2rayJsonFileForPing(item: item, bindPort: bindPort, jsonFile: jsonFile)
+        createV2rayJsonFileForPing()
 
         // Create a Process instance with async launch
-        let process = Process()
         // can't use `/bin/bash -c cmd...` otherwize v2ray process will become a ghost process
         process.launchPath = v2rayCoreFile
         process.arguments = ["-config", jsonFile]
@@ -126,48 +139,18 @@ class PingSpeed: NSObject {
         }
         // async launch and can't waitUntilExit
         process.launch()
-        
+
         // sleep for wait v2ray process instanse
         usleep(useconds_t(1 * second))
 
-        // async process
-        // set URLSessionDataDelegate
-        let metric = PingMetrics()
-        metric.ping = item
-
         // url request
-        let session = URLSession(configuration: getProxyUrlSessionConfigure(httpProxyPort: bindPort), delegate: metric, delegateQueue: nil)
-        let url = URL(string: "http://www.google.com/generate_204")!
-        let task = session.dataTask(with: URLRequest(url: url)){(data: Data?, response: URLResponse?, error: Error?) in
-            self.pingEnd(process: process, jsonFile: jsonFile, bindPort: bindPort)
-        }
+        let session = URLSession(configuration: getProxyUrlSessionConfigure(httpProxyPort: bindPort), delegate: self, delegateQueue: nil)
+        let task = session.dataTask(with: URLRequest(url: pingURL))
         task.resume()
     }
-    
-    func pingEnd(process: Process, jsonFile:String, bindPort: UInt16) {
-        // exit process
-        if process.isRunning {
-            // terminate v2ray process
-            process.terminate()
-            process.waitUntilExit()
-        }
-        
-        // close port
-        closePort(port: bindPort)
-        
-        // delete config
-        do {
-            let jsonFilePath = URL(fileURLWithPath: jsonFile)
-            try? FileManager.default.removeItem(at: jsonFilePath)
-        }
-        
-        // refresh server
-        self.refreshStatusMenu()
-    }
 
-    func createV2rayJsonFileForPing(item: V2rayItem, bindPort: UInt16, jsonFile: String) {
+    func createV2rayJsonFileForPing() {
         var jsonText = item.json
-        NSLog("bindPort: \(item.name)-\(item.remark) - \(bindPort)")
         // parse old
         let vCfg = V2rayConfig()
         vCfg.enableSocks = false // just can use one tcp port
@@ -181,41 +164,181 @@ class PingSpeed: NSObject {
 
         do {
             let jsonFilePath = URL(fileURLWithPath: jsonFile)
-
             // delete before config
             if FileManager.default.fileExists(atPath: jsonFile) {
-                try? FileManager.default.removeItem(at: jsonFilePath)
+                try FileManager.default.removeItem(at: jsonFilePath)
             }
-
+            // write
             try jsonText.write(to: jsonFilePath, atomically: true, encoding: String.Encoding.utf8)
         } catch let error {
             // failed to write file – bad permissions, bad filename, missing permissions, or more likely it can't be converted to the encoding
             NSLog("save json file fail: \(error)")
         }
     }
-}
-
-class PingMetrics: NSObject, URLSessionDataDelegate {
-    var ping: V2rayItem?
 
     // MARK: - URLSessionDataDelegate
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
+        item.speed = "-1ms"
         if let transactionMetrics = metrics.transactionMetrics.first {
             let fetchStartDate = transactionMetrics.fetchStartDate
             let responseEndDate = transactionMetrics.responseEndDate
             // check
-            if ping != nil && responseEndDate != nil && fetchStartDate != nil {
+            if responseEndDate != nil && fetchStartDate != nil {
                 let requestDuration = responseEndDate!.timeIntervalSince(fetchStartDate!)
                 let pingTs = Int(requestDuration * 100)
                 print("PingResult: fetchStartDate=\(fetchStartDate!),responseEndDate=\(responseEndDate!),requestDuration=\(requestDuration),pingTs=\(pingTs)")
                 // update ping speed
-                ping!.speed = String(format: "%d", pingTs) + "ms"
+                item.speed = String(format: "%d", pingTs) + "ms"
             }
         }
         // save
-        if ping != nil {
-            ping!.store()
+        item.store()
+        pingEnd()
+    }
+
+    func pingEnd() {
+        NSLog("ping end: \(item.remark) - \(item.speed)")
+
+        // delete config
+        do {
+            // exit process
+            if process.isRunning {
+                // terminate v2ray process
+                process.interrupt()
+                process.terminate()
+                process.waitUntilExit()
+            }
+            // close port
+            closePort(port: bindPort)
+            print("remove ping config:" ,self.jsonFile)
+            try FileManager.default.removeItem(at: URL(fileURLWithPath: self.jsonFile))
+        } catch let error {
+            print("remove ping config error: \(error)")
+        }
+        
+        // refresh servers
+        ping.refreshStatusMenu(item: item)
+    }
+}
+
+class PingCurrent: NSObject, URLSessionDataDelegate {
+    var item: V2rayItem
+    var tryPing = 0
+    
+    init(item: V2rayItem) {
+        self.item = item
+        super.init() // can actually be omitted in this example because will happen automatically.
+    }
+    
+    func doPing() {
+        inPingCurrent = true
+        NSLog("PingCurrent start: try=\(self.tryPing),item=\(item.remark)")
+        usleep(useconds_t(1*second))
+        // set URLSessionDataDelegate
+        let config = getProxyUrlSessionConfigure()
+        config.timeoutIntervalForRequest = 2
+        // url request
+        let session = URLSession(configuration: config, delegate: self, delegateQueue: nil)
+        let task = session.dataTask(with: URLRequest(url: pingURL))
+        task.resume()
+        self.tryPing += 1
+    }
+    
+    // MARK: - URLSessionDataDelegate
+
+    func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
+        item.speed = "-1ms"
+        if let transactionMetrics = metrics.transactionMetrics.first {
+            let fetchStartDate = transactionMetrics.fetchStartDate
+            let responseEndDate = transactionMetrics.responseEndDate
+            // check
+            if responseEndDate != nil && fetchStartDate != nil {
+                let requestDuration = responseEndDate!.timeIntervalSince(fetchStartDate!)
+                let pingTs = Int(requestDuration * 100)
+                print("PingCurrent: fetchStartDate=\(fetchStartDate!),responseEndDate=\(responseEndDate!),requestDuration=\(requestDuration),pingTs=\(pingTs)")
+                // update ping speed
+                self.item.speed = String(format: "%d", pingTs) + "ms"
+            }
+        }
+        // save
+        self.item.store()
+        self.pingCurrentEnd()
+    }
+
+    
+    func pingCurrentEnd(){
+        NSLog("PingCurrent end: try=\(self.tryPing),item=\(item.remark)")
+        // ping current fail
+        if item.speed == "-1ms" {
+            if self.tryPing < 3 {
+                self.doPing()
+            } else {
+                // choose next server
+                self.chooseNewServer()
+            }
+        } else {
+            inPingCurrent = false
+            menuController.showServers()
+            // reload config
+            if menuController.configWindow != nil {
+                DispatchQueue.main.async {
+                    // fix: must be used from main thread only
+                    menuController.configWindow.serversTableView.reloadData()
+                }
+            }
+        }
+    }
+    
+    func chooseNewServer(){
+        if !UserDefaults.getBool(forKey: .autoSelectFastestServer) {
+            NSLog(" - choose new server: disabled")
+            return
+        }
+        do {
+            V2rayServer.loadConfig()
+            let serverList = V2rayServer.list()
+            if serverList.count > 1 {
+                var pingedSvrs: Dictionary = [String:Int]()
+                var allSvrs = [String]()
+                for svr in serverList {
+                    if svr.name == self.item.name {
+                        continue
+                    }
+                    allSvrs.append(svr.name)
+                    if svr.isValid && svr.speed != "-1ms" {
+                        var speed = svr.speed
+                        // suffix substring or not
+                        let suffixStr = "ms"
+                        if speed.hasSuffix(suffixStr) {
+                           // Find the index to stop deleting at
+                           let LIndex = speed.index(speed.endIndex, offsetBy: -suffixStr.count)
+                           // Removing the suffix substring
+                            speed = String(speed[..<LIndex])
+                        }
+                        pingedSvrs[svr.name] = Int(speed)
+                    }
+                }
+                var newSvrName = ""
+                if pingedSvrs.count > 0 {
+                    // sort by ping seed
+                    let sortPing = pingedSvrs.sorted(by: { $0.value < $1.value } )
+                    newSvrName = sortPing[0].key
+                } else {
+                    let idx = Int.random(in: 0...allSvrs.count)
+                    newSvrName = allSvrs[idx]
+                }
+                NSLog(" - choose new server: \(newSvrName)")
+                // set current
+                UserDefaults.set(forKey: .v2rayCurrentServerName, value: newSvrName)
+                // stop first
+                V2rayLaunch.Stop()
+                // start
+                menuController.startV2rayCore()
+                // reload menu
+                menuController.showServers()
+            }
+            inPingCurrent = false
         }
     }
 }

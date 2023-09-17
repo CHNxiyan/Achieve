@@ -130,6 +130,7 @@ class MenuController: NSObject, NSMenuDelegate {
     var statusItemClicked: (() -> Void)?
     var configWindow: ConfigWindowController!
     var lastRunMode: String = ""; // for backup system proxy
+    let lock = NSLock()
 
     @IBOutlet weak var pacMode: NSMenuItem!
     @IBOutlet weak var manualMode: NSMenuItem!
@@ -143,7 +144,11 @@ class MenuController: NSObject, NSMenuDelegate {
     // when menu.xib loaded
     override func awakeFromNib() {
         newVersionItem.isHidden = true
-
+        
+        // kill v2ray
+        let pskillCmd = "ps aux | grep v2ray | grep '.V2rayU/config.json' | awk '{print $2}' | xargs kill"
+        _ = shell(launchPath: "/bin/bash", arguments: ["-c", pskillCmd])
+        
         // install before launch
         V2rayLaunch.install()
 
@@ -239,7 +244,9 @@ class MenuController: NSObject, NSMenuDelegate {
         }
 
         if let button = statusItem.button {
-            button.image = NSImage(named: NSImage.Name(iconName))
+            DispatchQueue.main.async {
+                button.image = NSImage(named: NSImage.Name(iconName))
+            }
         }
 
         // set on
@@ -290,45 +297,10 @@ class MenuController: NSObject, NSMenuDelegate {
         // switch run mode
         self.switchRunMode(runMode: runMode)
         
-        // do ping
-        if !inPing {
-            // use thread
-            let thread = Thread {
-                NSLog("ping current start")
-                // sleep for wait v2ray process instanse
-                usleep(useconds_t(1 * second))
-                // ping and refresh
-                self.pingCurrent(ping: v2ray)
-            }
-            thread.name = "pingOneThread"
-            thread.threadPriority = 1 /// 优先级
-            thread.start()
-        }
+        // ping and refresh
+        PingCurrent(item: v2ray).doPing()
     }
     
-    
-    func pingCurrent(ping: V2rayItem) {
-        // async process
-        // set URLSessionDataDelegate
-        let metric = PingMetrics()
-        metric.ping = ping
-        // url request
-        let session = URLSession(configuration: getProxyUrlSessionConfigure(), delegate: metric, delegateQueue: nil)
-        let url = URL(string: "http://www.google.com/generate_204")!
-        let task = session.dataTask(with: URLRequest(url: url)){(data: Data?, response: URLResponse?, error: Error?) in
-            NSLog("ping current end")
-            self.showServers()
-            // reload config
-            if self.configWindow != nil {
-                // fix: must be used from main thread only
-                DispatchQueue.main.async {
-                    self.configWindow.serversTableView.reloadData()
-                }
-            }
-        }
-        task.resume()
-    }
-
     @IBAction func start(_ sender: NSMenuItem) {
         ToggleRunning(false)
     }
@@ -429,53 +401,83 @@ class MenuController: NSObject, NSMenuDelegate {
         NSWorkspace.shared.open(url)
     }
 
+    func setStatusMenuTip(pingTip: String) {
+        lock.lock()
+        defer {
+            lock.unlock()
+        }
+        do {
+            if self.statusMenu.item(withTag: 1) != nil {
+                self.statusMenu.item(withTag: 1)?.title = pingTip
+            }
+        }
+    }
+    
     func showServers() {
-        // reomve old items
-        serverItems.submenu?.removeAllItems()
+        lock.lock()
+        defer {
+            lock.unlock()
+        }
         let curSer = UserDefaults.get(forKey: .v2rayCurrentServerName)
         // reload servers
         V2rayServer.loadConfig()
+        let _subMenus: NSMenu = NSMenu()
         // add new
         var validCount = 0
         var groupMenus: Dictionary = [String: NSMenu]()
+        var chooseGroup = ""
         for item in V2rayServer.list() {
             if !item.isValid {
                 continue
             }
             validCount+=1
             let menuItem: NSMenuItem = buildServerItem(item: item, curSer: curSer)
-            let groupTag: String = item.subscribe
+            var groupTag: String = item.subscribe
             if (groupTag.isEmpty) {
-                serverItems.submenu?.addItem(menuItem)
+                groupTag = "default"
+                _subMenus.addItem(menuItem)
                 continue
+            }
+            if item.name == curSer {
+                chooseGroup = groupTag
             }
             
             if let menu = groupMenus[groupTag] {
                 menu.addItem(menuItem)
             } else {
-                let newGroup: NSMenuItem = NSMenuItem()
                 let newGroupMenu: NSMenu = NSMenu()
-                var groupTagName = "订阅"
-                if let sub = V2raySubItem.load(name: item.subscribe) {
-                    groupTagName = "🌏 " + sub.remark
-                }
-                
-                newGroup.submenu = newGroupMenu
-                newGroup.title = groupTagName
-                newGroup.target = self
-                newGroup.isEnabled = true
                 groupMenus[groupTag] = newGroupMenu
                 newGroupMenu.addItem(menuItem)
-                serverItems.submenu?.addItem(newGroup)
             }
         }
-
+        
+        // subscribe items
+        for (itemKey,menu) in groupMenus {
+            if itemKey == "default" {
+                continue
+            }
+            let newGroup: NSMenuItem = NSMenuItem()
+            var groupTagName = "🌏 订阅"
+            if let sub = V2raySubItem.load(name: itemKey) {
+                groupTagName = "🌏 " + sub.remark + " (\(menu.items.count))"
+            }
+            newGroup.submenu = menu
+            newGroup.title = groupTagName
+            newGroup.target = self
+            newGroup.isEnabled = true
+            if chooseGroup == itemKey {
+                newGroup.state = NSControl.StateValue.on
+            }
+            _subMenus.addItem(newGroup)
+        }
+        
         if validCount == 0 {
             let menuItem: NSMenuItem = NSMenuItem()
             menuItem.title = "no available servers."
             menuItem.isEnabled = false
-            serverItems.submenu?.addItem(menuItem)
+            _subMenus.addItem(menuItem)
         }
+        serverItems.submenu = _subMenus
     }
     
     // build menu item by V2rayItem
