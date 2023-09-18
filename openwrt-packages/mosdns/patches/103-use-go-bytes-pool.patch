@@ -1,7 +1,7 @@
-From 5687ee04b7ffb71382a8be0680e988985faeb5c1 Mon Sep 17 00:00:00 2001
+From 9bb813bf50ba0eed3a35acc8f41764613c11687d Mon Sep 17 00:00:00 2001
 From: Irine Sistiana <49315432+IrineSistiana@users.noreply.github.com>
 Date: Sun, 17 Sep 2023 08:29:31 +0800
-Subject: [PATCH 2/3] use go-bytes-pool
+Subject: [PATCH 04/10] use go-bytes-pool
 
 ---
  go.mod                                  |   1 +
@@ -18,11 +18,11 @@ Subject: [PATCH 2/3] use go-bytes-pool
  delete mode 100644 pkg/pool/allocator_test.go
 
 diff --git a/go.mod b/go.mod
-index 1a1dd43..63fa30a 100644
+index b56078b..2c359e3 100644
 --- a/go.mod
 +++ b/go.mod
-@@ -3,6 +3,7 @@ module github.com/IrineSistiana/mosdns/v5
- go 1.19
+@@ -5,6 +5,7 @@ go 1.21
+ toolchain go1.21.1
  
  require (
 +	github.com/IrineSistiana/go-bytes-pool v0.0.0-20230419012903-2f1f26674686
@@ -30,7 +30,7 @@ index 1a1dd43..63fa30a 100644
  	github.com/google/nftables v0.1.0
  	github.com/kardianos/service v1.2.2
 diff --git a/go.sum b/go.sum
-index 59c420f..08a330d 100644
+index 633f864..d4bbaa2 100644
 --- a/go.sum
 +++ b/go.sum
 @@ -38,6 +38,8 @@ cloud.google.com/go/storage v1.14.0/go.mod h1:GrKmX003DSIwi9o29oFT7YDnHYwZoctc3f
@@ -41,7 +41,7 @@ index 59c420f..08a330d 100644
 +github.com/IrineSistiana/go-bytes-pool v0.0.0-20230419012903-2f1f26674686/go.mod h1:pQ/FSsWSNYmNdgIKmulKlmVC/R2PEpq2vIEi3J9IijI=
  github.com/IrineSistiana/ipset v0.5.1-0.20220703061533-6e0fc3b04c0a h1:GQdh/h0q0ni3L//CXusyk+7QdhBL289vdNaes1WKkHI=
  github.com/IrineSistiana/ipset v0.5.1-0.20220703061533-6e0fc3b04c0a/go.mod h1:rYF5DQLRGGoQ8ZSWeK+6eX5amAuPqwFkWjhQlEITGJQ=
- github.com/benbjohnson/clock v1.3.0 h1:ip6w0uFQkncKQ979AypyG0ER7mqUSBdKLOgAle/AT8A=
+ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 diff --git a/pkg/dnsutils/net_io.go b/pkg/dnsutils/net_io.go
 index 1b8a7b1..8fc769b 100644
 --- a/pkg/dnsutils/net_io.go
@@ -435,10 +435,10 @@ index 8c49131..c677797 100644
  				}
  				if readErr != nil {
 diff --git a/plugin/executable/cache/cache.go b/plugin/executable/cache/cache.go
-index 34229c7..9d2e79d 100644
+index f67d740..4091b50 100644
 --- a/plugin/executable/cache/cache.go
 +++ b/plugin/executable/cache/cache.go
-@@ -423,27 +423,27 @@ func (c *Cache) readDump(r io.Reader) (int, error) {
+@@ -420,27 +420,27 @@ func (c *Cache) readDump(r io.Reader) (int, error) {
  	readBlock := func() error {
  		h := pool.GetBuf(8)
  		defer pool.ReleaseBuf(h)

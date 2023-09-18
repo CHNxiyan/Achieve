@@ -9,51 +9,49 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	C "github.com/Dreamacro/clash/constant"
 )
 
-const (
-	xdURL   = "https://codeload.github.com/MetaCubeX/metacubexd/zip/refs/heads/gh-pages"
-	yacdURL = "https://codeload.github.com/MetaCubeX/Yacd-meta/zip/refs/heads/gh-pages"
+var (
+	ExternalUIURL    string
+	ExternalUIPath   string
+	ExternalUIFolder string
+	ExternalUIName   string
 )
 
 var xdMutex sync.Mutex
 
-func UpdateUI(ui string) error {
+func UpdateUI() error {
 	xdMutex.Lock()
 	defer xdMutex.Unlock()
 
-	var url string
-
-	if ui == "xd" {
-		url = xdURL
-	} else {
-		url = yacdURL
+	if ExternalUIPath == "" || ExternalUIFolder == "" || ExternalUIName == "" {
+		return fmt.Errorf("ExternalUI configure incomplete")
 	}
 
-	err := cleanup(path.Join(C.UIPath, ui))
+	err := cleanup(ExternalUIFolder)
 	if err != nil {
-		return fmt.Errorf("cleanup exist file error: %w", err)
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("cleanup exist file error: %w", err)
+		}
 	}
 
-	data, err := downloadForBytes(url)
+	data, err := downloadForBytes(ExternalUIURL)
 	if err != nil {
 		return fmt.Errorf("can't download  file: %w", err)
 	}
 
-	saved := path.Join(C.UIPath, "download.zip")
+	saved := path.Join(ExternalUIPath, "download.zip")
 	if saveFile(data, saved) != nil {
 		return fmt.Errorf("can't save zip file: %w", err)
 	}
 	defer os.Remove(saved)
 
-	unzipFolder, err := unzip(saved, C.UIPath)
+	unzipFolder, err := unzip(saved, ExternalUIPath)
 	if err != nil {
 		return fmt.Errorf("can't extract zip file: %w", err)
 	}
 
-	err = os.Rename(unzipFolder, path.Join(C.UIPath, ui))
+	err = os.Rename(unzipFolder, ExternalUIFolder)
 	if err != nil {
 		return fmt.Errorf("can't rename folder: %w", err)
 	}
@@ -101,22 +99,19 @@ func unzip(src, dest string) (string, error) {
 }
 
 func cleanup(root string) error {
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		return nil
+	}
 	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		if info.IsDir() {
 			if err := os.RemoveAll(path); err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
 				return err
 			}
 		} else {
 			if err := os.Remove(path); err != nil {
-				if os.IsNotExist(err) {
-					return nil
-				}
 				return err
 			}
 		}
