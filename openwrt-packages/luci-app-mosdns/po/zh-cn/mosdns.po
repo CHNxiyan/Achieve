@@ -73,8 +73,11 @@ msgstr "启用 DNS 广告过滤"
 msgid "ADblock Source"
 msgstr "广告过滤规则来源"
 
-msgid "When using custom rule sources, use the rule types supported by MosDNS"
-msgstr "使用自定义规则来源时，请使用 MosDNS 支持的规则类型"
+msgid "When using custom rule sources, please use rule types supported by MosDNS (domain lists)."
+msgstr "使用自定义规则来源时，请使用 MosDNS 支持的规则类型（域名列表）"
+
+msgid "Support for local files, such as: file:///var/mosdns/example.txt"
+msgstr "支持本地文件，例如：file:///var/mosdns/example.txt"
 
 msgid "Restart-Service"
 msgstr "重启服务"
@@ -170,7 +173,7 @@ msgid "Remote DNS"
 msgstr "远程 DNS"
 
 msgid "Concurrent"
-msgstr "DNS 服务器并发数（默认 1）"
+msgstr "DNS 服务器并发数（默认 2）"
 
 msgid "DNS query request concurrency, The number of upstream DNS servers that are allowed to initiate requests at the same time"
 msgstr "DNS 查询请求并发数，允许同时发起请求的上游 DNS 服务器数量"
