@@ -38,16 +38,14 @@ let preferencesWindowController = PreferencesWindowController(
 )
 var qrcodeWindow = QrcodeWindowController()
 
-var toastWindowCtrl: ToastWindowController!
+var toastWindowCtrl =  ToastWindowController()
 
 func makeToast(message: String, displayDuration: Double? = 2) {
-    return
-    if toastWindowCtrl != nil {
-        toastWindowCtrl.close()
-    }
+    toastWindowCtrl.close()
     toastWindowCtrl = ToastWindowController()
     toastWindowCtrl.message = message
-    toastWindowCtrl.showWindow(Any.self)
+    toastWindowCtrl.showWindow(nil)
+    toastWindowCtrl.becomeFirstResponder()
     toastWindowCtrl.fadeInHud(displayDuration)
 }
 
@@ -55,17 +53,11 @@ func ToggleRunning(_ toast: Bool = true) {
     // turn off
     if UserDefaults.getBool(forKey: .v2rayTurnOn) {
         menuController.stopV2rayCore()
-        if toast {
-            makeToast(message: "v2ray-core: Off")
-        }
         return
     }
 
     // start
     menuController.startV2rayCore()
-    if toast {
-        makeToast(message: "v2ray-core: On")
-    }
 }
 
 func SwitchProxyMode() {
@@ -74,15 +66,12 @@ func SwitchProxyMode() {
     switch runMode {
     case .pac:
         menuController.switchRunMode(runMode: .global)
-        makeToast(message: "V2rayU: global Mode")
         break
     case .global:
         menuController.switchRunMode(runMode: .manual)
-        makeToast(message: "V2rayU: manual Mode")
         break
     case .manual:
         menuController.switchRunMode(runMode: .pac)
-        makeToast(message: "V2rayU: pac Mode")
         break
 
     default: break
@@ -144,11 +133,11 @@ class MenuController: NSObject, NSMenuDelegate {
 
     // when menu.xib loaded
     override func awakeFromNib() {
+        print("awakeFromNib")
         newVersionItem.isHidden = true
         
         // kill v2ray
-        let pskillCmd = "ps aux | grep v2ray | grep '.V2rayU/config.json' | awk '{print $2}' | xargs kill"
-        _ = shell(launchPath: "/bin/bash", arguments: ["-c", pskillCmd])
+        killSelfV2ray()
         
         // install before launch
         V2rayLaunch.install()
@@ -188,13 +177,6 @@ class MenuController: NSObject, NSMenuDelegate {
         self.showServers()
 
         statusItem.menu = statusMenu
-
-        // version before 1.5.2: res.rawValue is 0 or -1
-        let isOldConfigVersion = appVersion.compare("1.5.2", options: .numeric).rawValue > 0
-        print("isOldConfigVersion", isOldConfigVersion)
-        if !isOldConfigVersion {
-            regenerateAllConfig()
-        }
 
         if UserDefaults.getBool(forKey: .v2rayTurnOn) {
             // start
@@ -288,18 +270,8 @@ class MenuController: NSObject, NSMenuDelegate {
         // create json file
         V2rayLaunch.createJsonFile(item: v2ray)
 
-        // set status
-        setStatusOn(runMode: runMode)
-
-        // launch
-        V2rayLaunch.Start()
-        NSLog("start v2ray-core done.")
-
         // switch run mode
         self.switchRunMode(runMode: runMode)
-        
-        // ping and refresh
-        PingCurrent(item: v2ray).doPing()
     }
     
     @IBAction func start(_ sender: NSMenuItem) {
@@ -403,26 +375,20 @@ class MenuController: NSObject, NSMenuDelegate {
     }
 
     func setStatusMenuTip(pingTip: String) {
-        lock.lock()
-        defer {
-            lock.unlock()
-        }
+        print("setStatusMenuTip", pingTip)
         do {
             if self.statusMenu.item(withTag: 1) != nil {
-                self.statusMenu.item(withTag: 1)?.title = pingTip
+                self.statusMenu.item(withTag: 1)!.title = pingTip
             }
         }
     }
     
     func showServers() {
         print("showServers")
-        lock.lock()
-        defer {
-            lock.unlock()
-        }
-        let curSer = UserDefaults.get(forKey: .v2rayCurrentServerName)
         // reload servers
         V2rayServer.loadConfig()
+    
+        let curSer = UserDefaults.get(forKey: .v2rayCurrentServerName)
         let _subMenus: NSMenu = NSMenu()
         // add new
         var validCount = 0
@@ -479,14 +445,18 @@ class MenuController: NSObject, NSMenuDelegate {
             menuItem.isEnabled = false
             _subMenus.addItem(menuItem)
         }
-        serverItems.submenu = _subMenus
-        
-        if menuController.configWindow != nil {
-            DispatchQueue.main.async {
-                // fix: must be used from main thread only
-                menuController.configWindow.serversTableView.reloadData()
+        lock.lock()
+        do {
+            serverItems.submenu = _subMenus
+            
+            if menuController.configWindow != nil {
+                DispatchQueue.main.async {
+                    // fix: must be used from main thread only
+                    menuController.configWindow.serversTableView.reloadData()
+                }
             }
         }
+        lock.unlock()
     }
     
     // build menu item by V2rayItem
@@ -544,10 +514,15 @@ class MenuController: NSObject, NSMenuDelegate {
         self.pacMode.state = runMode == .pac ? .on : .off
         self.manualMode.state = runMode == .manual ? .on : .off
        
+        // launch
+        let started = V2rayLaunch.Start()
+        if !started {
+            return
+        }
+        
         // set icon
         setStatusOn(runMode: runMode)
-        // launch
-        V2rayLaunch.Start()
+        
         // manual mode
         if lastRunMode == RunMode.manual.rawValue {
             // backup first

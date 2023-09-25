@@ -1,6 +1,6 @@
 [package]
 name = "shadowsocks-service"
-version = "1.15.2"
+version = "1.15.3"
 authors = ["Shadowsocks Contributors"]
 description = "shadowsocks is a fast tunnel proxy that helps you bypass firewalls."
 repository = "https://github.com/shadowsocks/shadowsocks-rust"
@@ -114,15 +114,14 @@ ipnet = "2.7"
 iprange = "0.6"
 regex = "1.4"
 
-tun = { version = "0.5.3", optional = true, features = ["async"] }
+tun = { version = "0.5.5", optional = true, features = ["async"] }
 etherparse = { version = "0.13", optional = true }
 smoltcp = { version = "0.9", optional = true, default-features = false, features = ["std", "log", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-icmp", "socket-udp", "socket-tcp"] }
 
 serde = { version = "1.0", features = ["derive"] }
 json5 = "0.4"
-base64 = "0.21"
 
-shadowsocks = { version = "1.15.0", path = "../shadowsocks", default-features = false }
+shadowsocks = { version = "1.15.3", path = "../shadowsocks", default-features = false }
 
 # Just for the ioctl call macro
 [target.'cfg(any(target_os = "macos", target_os = "ios", target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))'.dependencies]
