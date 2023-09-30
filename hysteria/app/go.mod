@@ -1,6 +1,6 @@
 module github.com/apernet/hysteria/app
 
-go 1.20
+go 1.21
 
 require (
 	github.com/apernet/go-tproxy v0.0.0-20230809025308-8f4723fd742f
@@ -8,6 +8,7 @@ require (
 	github.com/apernet/hysteria/extras v0.0.0-00010101000000-000000000000
 	github.com/caddyserver/certmagic v0.17.2
 	github.com/mdp/qrterminal/v3 v3.1.1
+	github.com/mholt/acmez v1.0.4
 	github.com/oschwald/geoip2-golang v1.9.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
@@ -17,7 +18,7 @@ require (
 )
 
 require (
-	github.com/apernet/quic-go v0.39.1-0.20230924223134-79ed77c4df4f // indirect
+	github.com/apernet/quic-go v0.39.1-0.20230930045547-13cecb45baa8 // indirect
 	github.com/babolivier/go-doh-client v0.0.0-20201028162107-a76cff4cb8b6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
@@ -29,7 +30,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.1.1 // indirect
 	github.com/libdns/libdns v0.2.1 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
-	github.com/mholt/acmez v1.0.4 // indirect
 	github.com/miekg/dns v1.1.55 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
@@ -46,7 +46,6 @@ require (
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/txthinking/runnergroup v0.0.0-20210608031112-152c7c4432bf // indirect
-	github.com/zhangyunhao116/fastrand v0.3.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/mock v0.3.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
