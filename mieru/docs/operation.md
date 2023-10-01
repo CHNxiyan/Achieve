@@ -10,7 +10,7 @@ The configuration file of the mieru client is also a binary file. It is stored i
 | :----: | :----: |
 | Linux | $HOME/.config/mieru/client.conf.pb |
 | Mac OS | /Users/USERNAME/Library/Application Support/mieru/client.conf.pb |
-| Windows | C:\Users\USERNAME\AppData\Roaming\mieru\client.conf.pb |
+| Windows | %USERPROFILE%\AppData\Roaming\mieru\client.conf.pb |
 
 ## View mita proxy server log
 
@@ -28,7 +28,7 @@ The location of the client mieru log files is shown in the following table.
 | :----: | :----: |
 | Linux | $HOME/.cache/mieru/ or $XDG_CACHE_HOME/mieru/ |
 | Mac OS | /Users/USERNAME/Library/Caches/mieru/ |
-| Windows | C:\Users\USERNAME\AppData\Local\mieru\ |
+| Windows | %USERPROFILE%\AppData\Local\mieru\ |
 
 Each log file uses the format `yyyyMMdd_HHmm_PID.log`, where `yyyyMMdd_HHmm` is the time when the mieru process was started and `PID` is the process number. Each time mieru is restarted, a new log file is generated. When there are too many log files, the old ones will be deleted automatically.
 

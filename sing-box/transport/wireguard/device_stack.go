@@ -289,6 +289,7 @@ func (ep *wireEndpoint) AddHeader(buffer stack.PacketBufferPtr) {
 func (ep *wireEndpoint) ParseHeader(ptr stack.PacketBufferPtr) bool {
 	return true
 }
+
 func (ep *wireEndpoint) WritePackets(list stack.PacketBufferList) (int, tcpip.Error) {
 	for _, packetBuffer := range list.AsSlice() {
 		packetBuffer.IncRef()

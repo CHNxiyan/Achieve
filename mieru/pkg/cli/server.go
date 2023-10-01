@@ -36,7 +36,6 @@ import (
 	"github.com/enfein/mieru/pkg/protocolv2"
 	"github.com/enfein/mieru/pkg/socks5"
 	"github.com/enfein/mieru/pkg/stderror"
-	"github.com/enfein/mieru/pkg/udpsession"
 	"github.com/enfein/mieru/pkg/util"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -323,9 +322,6 @@ var serverRunFunc = func(s []string) error {
 		}
 		mux.SetEndpoints(endpoints)
 
-		// Set MTU for UDP sessions.
-		udpsession.SetGlobalMTU(mtu)
-
 		// Create the egress socks5 server.
 		socks5Config := &socks5.Config{
 			AllowLocalDestination:    config.GetAdvancedSettings().GetAllowLocalDestination(),
@@ -335,9 +331,7 @@ var serverRunFunc = func(s []string) error {
 		if err != nil {
 			return fmt.Errorf(stderror.CreateSocks5ServerFailedErr, err)
 		}
-		if err = appctl.GetSocks5ServerGroup().Add("", 0, socks5Server); err != nil {
-			return fmt.Errorf(stderror.AddSocks5ServerToGroupFailedErr, err)
-		}
+		appctl.SetSocks5Server(socks5Server)
 
 		// Run the egress socks5 server in the background.
 		var proxyTasks sync.WaitGroup

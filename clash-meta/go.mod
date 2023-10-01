@@ -19,20 +19,20 @@ require (
 	github.com/lunixbochs/struc v0.0.0-20200707160740-784aaebc1d40
 	github.com/mdlayher/netlink v1.7.2
 	github.com/metacubex/gopacket v1.1.20-0.20230608035415-7e2f98a3e759
-	github.com/metacubex/quic-go v0.39.1-0.20230930051114-b486c7799a55
-	github.com/metacubex/sing-quic v0.0.0-20230930052455-ae588c275b9c
+	github.com/metacubex/quic-go v0.39.1-0.20231001052253-5776efe31623
+	github.com/metacubex/sing-quic v0.0.0-20230926004739-7c7c534c2255
 	github.com/metacubex/sing-shadowsocks v0.2.5
 	github.com/metacubex/sing-shadowsocks2 v0.1.4
-	github.com/metacubex/sing-tun v0.1.13-0.20230926010214-4e9d1add2aee
+	github.com/metacubex/sing-tun v0.1.14
 	github.com/metacubex/sing-vmess v0.1.9-0.20230921005247-a0488d7dac74
-	github.com/metacubex/sing-wireguard v0.0.0-20230611155257-1498ae315a28
+	github.com/metacubex/sing-wireguard v0.0.0-20231001110902-321836559170
 	github.com/miekg/dns v1.1.56
 	github.com/mroth/weightedrand/v2 v2.1.0
 	github.com/openacid/low v0.1.21
 	github.com/oschwald/maxminddb-golang v1.12.0
 	github.com/puzpuzpuz/xsync/v2 v2.5.0
 	github.com/sagernet/netlink v0.0.0-20220905062125-8043b4a9aa97
-	github.com/sagernet/sing v0.2.11
+	github.com/sagernet/sing v0.2.12
 	github.com/sagernet/sing-mux v0.1.3
 	github.com/sagernet/sing-shadowtls v0.1.4
 	github.com/sagernet/tfo-go v0.0.0-20230816093905-5a5c285d44a6
@@ -77,7 +77,7 @@ require (
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mdlayher/socket v0.4.1 // indirect
-	github.com/metacubex/gvisor v0.0.0-20230611153922-78842f086475 // indirect
+	github.com/metacubex/gvisor v0.0.0-20231001104248-0f672c3fb8d8 // indirect
 	github.com/oasisprotocol/deoxysii v0.0.0-20220228165953-2091330c22b7 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
@@ -105,4 +105,4 @@ require (
 	golang.org/x/tools v0.13.0 // indirect
 )
 
-replace github.com/sagernet/sing => github.com/metacubex/sing v0.0.0-20230926010351-b23b466642d1
+replace github.com/sagernet/sing => github.com/metacubex/sing v0.0.0-20231001053806-1230641572b9

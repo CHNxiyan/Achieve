@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	berty.tech/go-libtor v1.0.385
-	github.com/Dreamacro/clash v1.17.0
 	github.com/caddyserver/certmagic v0.19.2
 	github.com/cloudflare/circl v1.3.3
 	github.com/cretz/bine v0.2.0
@@ -21,16 +20,15 @@ require (
 	github.com/miekg/dns v1.1.56
 	github.com/ooni/go-libtor v1.1.8
 	github.com/oschwald/maxminddb-golang v1.12.0
-	github.com/pires/go-proxyproto v0.7.0
 	github.com/sagernet/cloudflare-tls v0.0.0-20230829051644-4a68352d0c4a
 	github.com/sagernet/gomobile v0.0.0-20230915142329-c6740b6d2950
 	github.com/sagernet/gvisor v0.0.0-20230930141345-5fef6f2e17ab
-	github.com/sagernet/quic-go v0.0.0-20230919101909-0cc6c5dcecee
+	github.com/sagernet/quic-go v0.0.0-20231001051131-0fc736a289bb
 	github.com/sagernet/reality v0.0.0-20230406110435-ee17307e7691
-	github.com/sagernet/sing v0.2.13-0.20230930134500-818cd2dd4bfa
+	github.com/sagernet/sing v0.2.13-0.20231001070509-81a98bf16263
 	github.com/sagernet/sing-dns v0.1.10
 	github.com/sagernet/sing-mux v0.1.3
-	github.com/sagernet/sing-quic v0.1.1
+	github.com/sagernet/sing-quic v0.1.2-0.20231001061659-f0ec0e24dd4d
 	github.com/sagernet/sing-shadowsocks v0.2.5
 	github.com/sagernet/sing-shadowsocks2 v0.1.4
 	github.com/sagernet/sing-shadowtls v0.1.4
@@ -59,7 +57,6 @@ require (
 //replace github.com/sagernet/sing => ../sing
 
 require (
-	github.com/Dreamacro/protobytes v0.0.0-20230617041236-6500a9f4f158 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
