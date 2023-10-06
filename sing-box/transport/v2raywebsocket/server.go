@@ -20,8 +20,7 @@ import (
 	N "github.com/sagernet/sing/common/network"
 	aTLS "github.com/sagernet/sing/common/tls"
 	sHttp "github.com/sagernet/sing/protocol/http"
-
-	"github.com/gobwas/ws"
+	"github.com/sagernet/websocket"
 )
 
 var _ adapter.V2RayServerTransport = (*Server)(nil)
@@ -59,6 +58,13 @@ func NewServer(ctx context.Context, options option.V2RayWebsocketOptions, tlsCon
 	return server, nil
 }
 
+var upgrader = websocket.Upgrader{
+	HandshakeTimeout: C.TCPTimeout,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
 func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if s.maxEarlyData == 0 || s.earlyDataHeaderName != "" {
 		if request.URL.Path != s.path {
@@ -89,14 +95,14 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		s.invalidRequest(writer, request, http.StatusBadRequest, E.Cause(err, "decode early data"))
 		return
 	}
-	wsConn, reader, _, err := ws.UpgradeHTTP(request, writer)
+	wsConn, err := upgrader.Upgrade(writer, request, nil)
 	if err != nil {
 		s.invalidRequest(writer, request, 0, E.Cause(err, "upgrade websocket connection"))
 		return
 	}
 	var metadata M.Metadata
 	metadata.Source = sHttp.SourceAddress(request)
-	conn = NewConn(wsConn, reader.Reader, metadata.Source.TCPAddr(), ws.StateServerSide)
+	conn = NewServerConn(wsConn, metadata.Source.TCPAddr())
 	if len(earlyData) > 0 {
 		conn = bufio.NewCachedConn(conn, buf.As(earlyData))
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	"net/netip"
 	"os"
-	"runtime"
 	"testing"
 
 	C "github.com/sagernet/sing-box/constant"
@@ -37,26 +36,24 @@ func TestV2RayWebsocket(t *testing.T) {
 			},
 		})
 	})
-	if runtime.GOOS != "darwin" {
-		t.Run("inbound", func(t *testing.T) {
-			testV2RayWebsocketInbound(t, 0, "")
-		})
-		t.Run("inbound-early-data", func(t *testing.T) {
-			testV2RayWebsocketInbound(t, 2048, "")
-		})
-		t.Run("inbound-xray-early-data", func(t *testing.T) {
-			testV2RayWebsocketInbound(t, 2048, "Sec-WebSocket-Protocol")
-		})
-		t.Run("outbound", func(t *testing.T) {
-			testV2RayWebsocketOutbound(t, 0, "")
-		})
-		t.Run("outbound-early-data", func(t *testing.T) {
-			testV2RayWebsocketOutbound(t, 2048, "")
-		})
-		t.Run("outbound-xray-early-data", func(t *testing.T) {
-			testV2RayWebsocketOutbound(t, 2048, "Sec-WebSocket-Protocol")
-		})
-	}
+	t.Run("inbound", func(t *testing.T) {
+		testV2RayWebsocketInbound(t, 0, "")
+	})
+	t.Run("inbound-early-data", func(t *testing.T) {
+		testV2RayWebsocketInbound(t, 2048, "")
+	})
+	t.Run("inbound-xray-early-data", func(t *testing.T) {
+		testV2RayWebsocketInbound(t, 2048, "Sec-WebSocket-Protocol")
+	})
+	t.Run("outbound", func(t *testing.T) {
+		testV2RayWebsocketOutbound(t, 0, "")
+	})
+	t.Run("outbound-early-data", func(t *testing.T) {
+		testV2RayWebsocketOutbound(t, 2048, "")
+	})
+	t.Run("outbound-xray-early-data", func(t *testing.T) {
+		testV2RayWebsocketOutbound(t, 2048, "Sec-WebSocket-Protocol")
+	})
 }
 
 func testV2RayWebsocketInbound(t *testing.T, maxEarlyData uint32, earlyDataHeaderName string) {

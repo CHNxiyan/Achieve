@@ -5,36 +5,57 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/tls"
-	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
+	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
 	sHTTP "github.com/sagernet/sing/protocol/http"
-
-	"github.com/gobwas/ws"
+	"github.com/sagernet/websocket"
 )
 
 var _ adapter.V2RayClientTransport = (*Client)(nil)
 
 type Client struct {
-	dialer              N.Dialer
-	tlsConfig           tls.Config
-	serverAddr          M.Socksaddr
+	dialer              *websocket.Dialer
 	requestURL          url.URL
+	requestURLString    string
 	headers             http.Header
 	maxEarlyData        uint32
 	earlyDataHeaderName string
 }
 
 func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayWebsocketOptions, tlsConfig tls.Config) adapter.V2RayClientTransport {
+	wsDialer := &websocket.Dialer{
+		ReadBufferSize:   4 * 1024,
+		WriteBufferSize:  4 * 1024,
+		HandshakeTimeout: time.Second * 8,
+	}
 	if tlsConfig != nil {
 		if len(tlsConfig.NextProtos()) == 0 {
 			tlsConfig.SetNextProtos([]string{"http/1.1"})
+		}
+		wsDialer.NetDialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			conn, err := dialer.DialContext(ctx, network, M.ParseSocksaddr(addr))
+			if err != nil {
+				return nil, err
+			}
+			tlsConn, err := tls.ClientHandshake(ctx, conn, tlsConfig)
+			if err != nil {
+				return nil, err
+			}
+			return &deadConn{tlsConn}, nil
+		}
+	} else {
+		wsDialer.NetDialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			conn, err := dialer.DialContext(ctx, network, M.ParseSocksaddr(addr))
+			if err != nil {
+				return nil, err
+			}
+			return &deadConn{conn}, nil
 		}
 	}
 	var requestURL url.URL
@@ -49,52 +70,35 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 	if err != nil {
 		return nil
 	}
-	if !strings.HasPrefix(requestURL.Path, "/") {
-		requestURL.Path = "/" + requestURL.Path
-	}
 	headers := make(http.Header)
 	for key, value := range options.Headers {
 		headers[key] = value
 	}
 	return &Client{
-		dialer,
-		tlsConfig,
-		serverAddr,
+		wsDialer,
 		requestURL,
+		requestURL.String(),
 		headers,
 		options.MaxEarlyData,
 		options.EarlyDataHeaderName,
 	}
 }
 
-func (c *Client) dialContext(ctx context.Context, requestURL *url.URL, headers http.Header) (*WebsocketConn, error) {
-	conn, err := c.dialer.DialContext(ctx, N.NetworkTCP, c.serverAddr)
-	if err != nil {
-		return nil, err
-	}
-	if c.tlsConfig != nil {
-		conn, err = tls.ClientHandshake(ctx, conn, c.tlsConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-	conn.SetDeadline(time.Now().Add(C.TCPTimeout))
-	reader, _, err := ws.Dialer{Header: ws.HandshakeHeaderHTTP(headers)}.Upgrade(conn, requestURL)
-	conn.SetDeadline(time.Time{})
-	if err != nil {
-		return nil, err
-	}
-	return NewConn(conn, reader, nil, ws.StateClientSide), nil
-}
-
 func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 	if c.maxEarlyData <= 0 {
-		conn, err := c.dialContext(ctx, &c.requestURL, c.headers)
-		if err != nil {
-			return nil, err
+		conn, response, err := c.dialer.DialContext(ctx, c.requestURLString, c.headers)
+		if err == nil {
+			return &WebsocketConn{Conn: conn, Writer: NewWriter(conn, false)}, nil
 		}
-		return conn, nil
+		return nil, wrapDialError(response, err)
 	} else {
 		return &EarlyWebsocketConn{Client: c, ctx: ctx, create: make(chan struct{})}, nil
 	}
+}
+
+func wrapDialError(response *http.Response, err error) error {
+	if response == nil {
+		return err
+	}
+	return E.Extend(err, "HTTP ", response.StatusCode, " ", response.Status)
 }

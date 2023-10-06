@@ -137,8 +137,8 @@ func (wsc *websocketConn) WriteBuffer(buffer *buf.Buffer) error {
 
 	if wsc.state.ClientSide() {
 		maskKey := fastrand.Uint32()
-		binary.BigEndian.PutUint32(header[1+payloadBitLength:], maskKey)
-		ws.Cipher(data, *(*[4]byte)(header[1+payloadBitLength:]), 0)
+		binary.LittleEndian.PutUint32(header[1+payloadBitLength:], maskKey)
+		N.MaskWebSocket(maskKey, data)
 	}
 
 	return wsc.rawWriter.WriteBuffer(buffer)
@@ -367,11 +367,14 @@ func streamWebsocketConn(ctx context.Context, conn net.Conn, c *WebsocketConfig,
 		if c.EarlyDataHeaderName == "" {
 			uri.Path += earlyDataString
 		} else {
-			headers.Set(c.EarlyDataHeaderName, earlyDataString)
 			// gobwas/ws will check server's response "Sec-Websocket-Protocol" so must add Protocols to ws.Dialer
 			// if not will cause ws.ErrHandshakeBadSubProtocol
 			if c.EarlyDataHeaderName == "Sec-WebSocket-Protocol" {
+				// gobwas/ws will set "Sec-Websocket-Protocol" according dialer.Protocols
+				// to avoid send repeatedly don't set it to headers
 				dialer.Protocols = []string{earlyDataString}
+			} else {
+				headers.Set(c.EarlyDataHeaderName, earlyDataString)
 			}
 
 		}
@@ -422,9 +425,11 @@ func newWebsocketConn(conn net.Conn, br *bufio.Reader, state ws.State) *websocke
 		Conn:  conn,
 		state: state,
 		reader: &wsutil.Reader{
-			Source:         reader,
-			State:          state,
-			OnIntermediate: controlHandler,
+			Source:          reader,
+			State:           state,
+			SkipHeaderCheck: true,
+			CheckUTF8:       false,
+			OnIntermediate:  controlHandler,
 		},
 		controlHandler: controlHandler,
 		rawWriter:      N.NewExtendedWriter(conn),
@@ -444,7 +449,6 @@ func decodeXray0rtt(requestHeader http.Header) ([]byte, http.Header) {
 	if secProtocol := requestHeader.Get("Sec-WebSocket-Protocol"); len(secProtocol) > 0 {
 		if buf, err := decodeEd(secProtocol); err == nil { // sure could base64 decode
 			edBuf = buf
-			responseHeader.Set("Sec-WebSocket-Protocol", secProtocol)
 		}
 	}
 	return edBuf, responseHeader
@@ -453,8 +457,7 @@ func decodeXray0rtt(requestHeader http.Header) ([]byte, http.Header) {
 func StreamUpgradedWebsocketConn(w http.ResponseWriter, r *http.Request) (net.Conn, error) {
 	edBuf, responseHeader := decodeXray0rtt(r.Header)
 	wsConn, rw, _, err := ws.HTTPUpgrader{
-		Header:   responseHeader,
-		Protocol: func(s string) bool { return true }, // avoid ws.ErrHandshakeBadSubProtocol
+		Header: responseHeader,
 	}.Upgrade(r, w)
 	if err != nil {
 		return nil, err

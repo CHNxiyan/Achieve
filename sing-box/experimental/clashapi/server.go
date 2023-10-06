@@ -25,12 +25,11 @@ import (
 	N "github.com/sagernet/sing/common/network"
 	"github.com/sagernet/sing/service"
 	"github.com/sagernet/sing/service/filemanager"
+	"github.com/sagernet/websocket"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/render"
-	"github.com/gobwas/ws"
-	"github.com/gobwas/ws/wsutil"
 )
 
 func init() {
@@ -315,7 +314,7 @@ func authentication(serverSecret string) func(next http.Handler) http.Handler {
 			}
 
 			// Browser websocket not support custom header
-			if r.Header.Get("Upgrade") == "websocket" && r.URL.Query().Get("token") != "" {
+			if websocket.IsWebSocketUpgrade(r) && r.URL.Query().Get("token") != "" {
 				token := r.URL.Query().Get("token")
 				if token != serverSecret {
 					render.Status(r, http.StatusUnauthorized)
@@ -352,6 +351,12 @@ func hello(redirect bool) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
 type Traffic struct {
 	Up   int64 `json:"up"`
 	Down int64 `json:"down"`
@@ -359,17 +364,16 @@ type Traffic struct {
 
 func traffic(trafficManager *trafficontrol.Manager) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var conn net.Conn
-		if r.Header.Get("Upgrade") == "websocket" {
+		var wsConn *websocket.Conn
+		if websocket.IsWebSocketUpgrade(r) {
 			var err error
-			conn, _, _, err = ws.UpgradeHTTP(r, w)
+			wsConn, err = upgrader.Upgrade(w, r, nil)
 			if err != nil {
 				return
 			}
-			defer conn.Close()
 		}
 
-		if conn == nil {
+		if wsConn == nil {
 			w.Header().Set("Content-Type", "application/json")
 			render.Status(r, http.StatusOK)
 		}
@@ -388,11 +392,11 @@ func traffic(trafficManager *trafficontrol.Manager) func(w http.ResponseWriter, 
 				break
 			}
 
-			if conn == nil {
+			if wsConn == nil {
 				_, err = w.Write(buf.Bytes())
 				w.(http.Flusher).Flush()
 			} else {
-				err = wsutil.WriteServerText(conn, buf.Bytes())
+				err = wsConn.WriteMessage(websocket.TextMessage, buf.Bytes())
 			}
 
 			if err != nil {
@@ -428,16 +432,16 @@ func getLogs(logFactory log.ObservableFactory) func(w http.ResponseWriter, r *ht
 		}
 		defer logFactory.UnSubscribe(subscription)
 
-		var conn net.Conn
-		if r.Header.Get("Upgrade") == "websocket" {
-			conn, _, _, err = ws.UpgradeHTTP(r, w)
+		var wsConn *websocket.Conn
+		if websocket.IsWebSocketUpgrade(r) {
+			var err error
+			wsConn, err = upgrader.Upgrade(w, r, nil)
 			if err != nil {
 				return
 			}
-			defer conn.Close()
 		}
 
-		if conn == nil {
+		if wsConn == nil {
 			w.Header().Set("Content-Type", "application/json")
 			render.Status(r, http.StatusOK)
 		}
@@ -461,11 +465,11 @@ func getLogs(logFactory log.ObservableFactory) func(w http.ResponseWriter, r *ht
 			if err != nil {
 				break
 			}
-			if conn == nil {
+			if wsConn == nil {
 				_, err = w.Write(buf.Bytes())
 				w.(http.Flusher).Flush()
 			} else {
-				err = wsutil.WriteServerText(conn, buf.Bytes())
+				err = wsConn.WriteMessage(websocket.TextMessage, buf.Bytes())
 			}
 
 			if err != nil {
