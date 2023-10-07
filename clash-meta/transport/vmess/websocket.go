@@ -456,17 +456,15 @@ func decodeXray0rtt(requestHeader http.Header) ([]byte, http.Header) {
 
 func StreamUpgradedWebsocketConn(w http.ResponseWriter, r *http.Request) (net.Conn, error) {
 	edBuf, responseHeader := decodeXray0rtt(r.Header)
-	wsConn, rw, _, err := ws.HTTPUpgrader{
-		Header: responseHeader,
-	}.Upgrade(r, w)
+	wsConn, rw, _, err := ws.HTTPUpgrader{Header: responseHeader}.Upgrade(r, w)
 	if err != nil {
 		return nil, err
 	}
 	conn := newWebsocketConn(wsConn, rw.Reader, ws.StateServerSide)
 	if len(edBuf) > 0 {
-		return &websocketWithReaderConn{conn, io.MultiReader(bytes.NewReader(edBuf), conn)}, nil
+		return N.NewDeadlineConn(&websocketWithReaderConn{conn, io.MultiReader(bytes.NewReader(edBuf), conn)}), nil
 	}
-	return conn, nil
+	return N.NewDeadlineConn(conn), nil
 }
 
 type websocketWithReaderConn struct {
