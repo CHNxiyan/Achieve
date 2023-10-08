@@ -118,12 +118,17 @@ func (wsc *websocketConn) WriteBuffer(buffer *buf.Buffer) error {
 	var headerLen int
 	headerLen += 1 // FIN / RSV / OPCODE
 	headerLen += payloadBitLength
-	headerLen += 4 // MASK KEY
+	if wsc.state.ClientSide() {
+		headerLen += 4 // MASK KEY
+	}
 
 	header := buffer.ExtendHeader(headerLen)
-	_ = header[2] // bounds check hint to compiler
 	header[0] = byte(ws.OpBinary) | 0x80
-	header[1] = 1 << 7
+	if wsc.state.ClientSide() {
+		header[1] = 1 << 7
+	} else {
+		header[1] = 0
+	}
 
 	if dataLen < 126 {
 		header[1] |= byte(dataLen)
