@@ -66,20 +66,21 @@ type General struct {
 
 // Inbound config
 type Inbound struct {
-	Port              int           `json:"port"`
-	SocksPort         int           `json:"socks-port"`
-	RedirPort         int           `json:"redir-port"`
-	TProxyPort        int           `json:"tproxy-port"`
-	MixedPort         int           `json:"mixed-port"`
-	Tun               LC.Tun        `json:"tun"`
-	TuicServer        LC.TuicServer `json:"tuic-server"`
-	ShadowSocksConfig string        `json:"ss-config"`
-	VmessConfig       string        `json:"vmess-config"`
-	Authentication    []string      `json:"authentication"`
-	AllowLan          bool          `json:"allow-lan"`
-	BindAddress       string        `json:"bind-address"`
-	InboundTfo        bool          `json:"inbound-tfo"`
-	InboundMPTCP      bool          `json:"inbound-mptcp"`
+	Port              int            `json:"port"`
+	SocksPort         int            `json:"socks-port"`
+	RedirPort         int            `json:"redir-port"`
+	TProxyPort        int            `json:"tproxy-port"`
+	MixedPort         int            `json:"mixed-port"`
+	Tun               LC.Tun         `json:"tun"`
+	TuicServer        LC.TuicServer  `json:"tuic-server"`
+	ShadowSocksConfig string         `json:"ss-config"`
+	VmessConfig       string         `json:"vmess-config"`
+	Authentication    []string       `json:"authentication"`
+	SkipAuthPrefixes  []netip.Prefix `json:"skip-auth-prefixes"`
+	AllowLan          bool           `json:"allow-lan"`
+	BindAddress       string         `json:"bind-address"`
+	InboundTfo        bool           `json:"inbound-tfo"`
+	InboundMPTCP      bool           `json:"inbound-mptcp"`
 }
 
 // Controller config
@@ -228,21 +229,21 @@ type RawTun struct {
 	RedirectToTun       []string   `yaml:"-" json:"-"`
 
 	MTU uint32 `yaml:"mtu" json:"mtu,omitempty"`
-	//Inet4Address           []LC.ListenPrefix `yaml:"inet4-address" json:"inet4_address,omitempty"`
-	Inet6Address           []LC.ListenPrefix `yaml:"inet6-address" json:"inet6_address,omitempty"`
-	StrictRoute            bool              `yaml:"strict-route" json:"strict_route,omitempty"`
-	Inet4RouteAddress      []LC.ListenPrefix `yaml:"inet4_route_address" json:"inet4_route_address,omitempty"`
-	Inet6RouteAddress      []LC.ListenPrefix `yaml:"inet6_route_address" json:"inet6_route_address,omitempty"`
-	IncludeUID             []uint32          `yaml:"include-uid" json:"include_uid,omitempty"`
-	IncludeUIDRange        []string          `yaml:"include-uid-range" json:"include_uid_range,omitempty"`
-	ExcludeUID             []uint32          `yaml:"exclude-uid" json:"exclude_uid,omitempty"`
-	ExcludeUIDRange        []string          `yaml:"exclude-uid-range" json:"exclude_uid_range,omitempty"`
-	IncludeAndroidUser     []int             `yaml:"include-android-user" json:"include_android_user,omitempty"`
-	IncludePackage         []string          `yaml:"include-package" json:"include_package,omitempty"`
-	ExcludePackage         []string          `yaml:"exclude-package" json:"exclude_package,omitempty"`
-	EndpointIndependentNat bool              `yaml:"endpoint-independent-nat" json:"endpoint_independent_nat,omitempty"`
-	UDPTimeout             int64             `yaml:"udp-timeout" json:"udp_timeout,omitempty"`
-	FileDescriptor         int               `yaml:"file-descriptor" json:"file-descriptor"`
+	//Inet4Address           []netip.Prefix `yaml:"inet4-address" json:"inet4_address,omitempty"`
+	Inet6Address           []netip.Prefix `yaml:"inet6-address" json:"inet6_address,omitempty"`
+	StrictRoute            bool           `yaml:"strict-route" json:"strict_route,omitempty"`
+	Inet4RouteAddress      []netip.Prefix `yaml:"inet4_route_address" json:"inet4_route_address,omitempty"`
+	Inet6RouteAddress      []netip.Prefix `yaml:"inet6_route_address" json:"inet6_route_address,omitempty"`
+	IncludeUID             []uint32       `yaml:"include-uid" json:"include_uid,omitempty"`
+	IncludeUIDRange        []string       `yaml:"include-uid-range" json:"include_uid_range,omitempty"`
+	ExcludeUID             []uint32       `yaml:"exclude-uid" json:"exclude_uid,omitempty"`
+	ExcludeUIDRange        []string       `yaml:"exclude-uid-range" json:"exclude_uid_range,omitempty"`
+	IncludeAndroidUser     []int          `yaml:"include-android-user" json:"include_android_user,omitempty"`
+	IncludePackage         []string       `yaml:"include-package" json:"include_package,omitempty"`
+	ExcludePackage         []string       `yaml:"exclude-package" json:"exclude_package,omitempty"`
+	EndpointIndependentNat bool           `yaml:"endpoint-independent-nat" json:"endpoint_independent_nat,omitempty"`
+	UDPTimeout             int64          `yaml:"udp-timeout" json:"udp_timeout,omitempty"`
+	FileDescriptor         int            `yaml:"file-descriptor" json:"file-descriptor"`
 }
 
 type RawTuicServer struct {
@@ -271,6 +272,7 @@ type RawConfig struct {
 	InboundTfo              bool              `yaml:"inbound-tfo"`
 	InboundMPTCP            bool              `yaml:"inbound-mptcp"`
 	Authentication          []string          `yaml:"authentication"`
+	SkipAuthPrefixes        []netip.Prefix    `yaml:"skip-auth-prefixes"`
 	AllowLan                bool              `yaml:"allow-lan"`
 	BindAddress             string            `yaml:"bind-address"`
 	Mode                    T.TunnelMode      `yaml:"mode"`
@@ -386,7 +388,7 @@ func UnmarshalRawConfig(buf []byte) (*RawConfig, error) {
 			DNSHijack:           []string{"0.0.0.0:53"}, // default hijack all dns query
 			AutoRoute:           true,
 			AutoDetectInterface: true,
-			Inet6Address:        []LC.ListenPrefix{LC.ListenPrefix(netip.MustParsePrefix("fdfe:dcba:9876::1/126"))},
+			Inet6Address:        []netip.Prefix{netip.MustParsePrefix("fdfe:dcba:9876::1/126")},
 		},
 		TuicServer: RawTuicServer{
 			Enable:                false,
@@ -620,6 +622,7 @@ func parseGeneral(cfg *RawConfig) (*General, error) {
 			ShadowSocksConfig: cfg.ShadowSocksConfig,
 			VmessConfig:       cfg.VmessConfig,
 			AllowLan:          cfg.AllowLan,
+			SkipAuthPrefixes:  cfg.SkipAuthPrefixes,
 			BindAddress:       cfg.BindAddress,
 			InboundTfo:        cfg.InboundTfo,
 			InboundMPTCP:      cfg.InboundMPTCP,
@@ -1361,7 +1364,7 @@ func parseTun(rawTun RawTun, general *General) error {
 		RedirectToTun:       rawTun.RedirectToTun,
 
 		MTU:                    rawTun.MTU,
-		Inet4Address:           []LC.ListenPrefix{LC.ListenPrefix(tunAddressPrefix)},
+		Inet4Address:           []netip.Prefix{tunAddressPrefix},
 		Inet6Address:           rawTun.Inet6Address,
 		StrictRoute:            rawTun.StrictRoute,
 		Inet4RouteAddress:      rawTun.Inet4RouteAddress,
