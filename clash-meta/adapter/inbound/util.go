@@ -1,7 +1,6 @@
 package inbound
 
 import (
-	"errors"
 	"net"
 	"net/http"
 	"net/netip"
@@ -61,34 +60,4 @@ func parseHTTPAddr(request *http.Request) *C.Metadata {
 	}
 
 	return metadata
-}
-
-func parseAddr(addr net.Addr) (netip.AddrPort, error) {
-	// Filter when net.Addr interface is nil
-	if addr == nil {
-		return netip.AddrPort{}, errors.New("nil addr")
-	}
-	if rawAddr, ok := addr.(interface{ RawAddr() net.Addr }); ok {
-		if addrPort, err := parseAddr(rawAddr.RawAddr()); err == nil {
-			return addrPort, nil
-		}
-	}
-	if addr, ok := addr.(interface{ AddrPort() netip.AddrPort }); ok {
-		if addrPort := addr.AddrPort(); addrPort.IsValid() {
-			return addrPort, nil
-		}
-	}
-	addrStr := addr.String()
-	host, port, err := net.SplitHostPort(addrStr)
-	if err != nil {
-		return netip.AddrPort{}, err
-	}
-
-	var uint16Port uint16
-	if port, err := strconv.ParseUint(port, 10, 16); err == nil {
-		uint16Port = uint16(port)
-	}
-
-	ip, err := netip.ParseAddr(host)
-	return netip.AddrPortFrom(ip, uint16Port), err
 }

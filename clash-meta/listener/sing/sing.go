@@ -12,7 +12,6 @@ import (
 	N "github.com/Dreamacro/clash/common/net"
 	C "github.com/Dreamacro/clash/constant"
 	"github.com/Dreamacro/clash/log"
-	"github.com/Dreamacro/clash/transport/socks5"
 
 	vmess "github.com/metacubex/sing-vmess"
 	mux "github.com/sagernet/sing-mux"
@@ -85,15 +84,20 @@ func (h *ListenerHandler) NewConnection(ctx context.Context, conn net.Conn, meta
 	if h.IsSpecialFqdn(metadata.Destination.Fqdn) {
 		return h.ParseSpecialFqdn(ctx, conn, metadata)
 	}
-	target := socks5.ParseAddr(metadata.Destination.String())
 
 	if deadline.NeedAdditionalReadDeadline(conn) {
 		conn = N.NewDeadlineConn(conn) // conn from sing should check NeedAdditionalReadDeadline
 	}
-	connCtx := inbound.NewSocket(target, conn, h.Type, combineAdditions(ctx, h.Additions)...)
-	inbound.WithSrcAddr(metadata.Source.TCPAddr()).Apply(connCtx.Metadata()) // set srcAddr from sing's metadata
 
-	h.Tunnel.HandleTCPConn(connCtx) // this goroutine must exit after conn unused
+	cMetadata := &C.Metadata{
+		NetWork: C.TCP,
+		Type:    h.Type,
+	}
+	inbound.ApplyAdditions(cMetadata, inbound.WithDstAddr(metadata.Destination), inbound.WithSrcAddr(metadata.Source), inbound.WithInAddr(conn.LocalAddr()))
+	inbound.ApplyAdditions(cMetadata, getAdditions(ctx)...)
+	inbound.ApplyAdditions(cMetadata, h.Additions...)
+
+	h.Tunnel.HandleTCPConn(conn, cMetadata) // this goroutine must exit after conn unused
 	return nil
 }
 
@@ -138,8 +142,7 @@ func (h *ListenerHandler) NewPacketConnection(ctx context.Context, conn network.
 			}
 			return err
 		}
-		target := socks5.ParseAddr(dest.String())
-		packet := &packet{
+		cPacket := &packet{
 			conn:  &conn2,
 			mutex: &mutex,
 			rAddr: metadata.Source.UDPAddr(),
@@ -147,7 +150,15 @@ func (h *ListenerHandler) NewPacketConnection(ctx context.Context, conn network.
 			buff:  buff,
 		}
 
-		h.Tunnel.HandleUDPPacket(inbound.NewPacket(target, packet, h.Type, combineAdditions(ctx, h.Additions)...))
+		cMetadata := &C.Metadata{
+			NetWork: C.UDP,
+			Type:    h.Type,
+		}
+		inbound.ApplyAdditions(cMetadata, inbound.WithDstAddr(dest), inbound.WithSrcAddr(metadata.Source), inbound.WithInAddr(conn.LocalAddr()))
+		inbound.ApplyAdditions(cMetadata, getAdditions(ctx)...)
+		inbound.ApplyAdditions(cMetadata, h.Additions...)
+
+		h.Tunnel.HandleUDPPacket(cPacket, cMetadata)
 	}
 	return nil
 }
@@ -214,12 +225,4 @@ func (c *packet) Drop() {
 
 func (c *packet) InAddr() net.Addr {
 	return c.lAddr
-}
-
-func (c *packet) SetNatTable(natTable C.NatTable) {
-	// no need
-}
-
-func (c *packet) SetUdpInChan(in chan<- C.PacketAdapter) {
-	// no need
 }

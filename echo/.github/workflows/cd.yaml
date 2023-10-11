@@ -1,4 +1,4 @@
-name: normal
+name: build-image
 
 on:
   push:
@@ -8,13 +8,8 @@ on:
       - "cmd/**"
       - "internal/**"
       - "pkg/**"
-  pull_request:
-    branches:
-      - master
-    paths:
-      - "cmd/**"
-      - "internal/**"
-      - "pkg/**"
+  workflow_dispatch:
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -55,6 +50,9 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: set up qemu
+        uses: docker/setup-qemu-action@v2
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
@@ -64,19 +62,11 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build x86 image
+      - name: Build multi-platform image
         uses: docker/build-push-action@v4
         with:
           context: .
-          tags: "ehco1996/ehco:latest"
+          tags: "ehco1996/ehco:latest,ehco1996/ehco:${{ github.sha }}"
           push: true
           file: build/Dockerfile
-
-      # TODO fix the arm build error  gcc: error: unrecognized command-line option '-marm'; did you mean '-mabm'?
-      # - name: Build arm image
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: .
-      #     tags: "ehco1996/ehco:arm64"
-      #     push: true
-      #     file: build/arm.Dockerfile
+          platforms: linux/amd64,linux/arm64
