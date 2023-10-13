@@ -715,6 +715,13 @@ enum AckResult {
   PACKETS_ACKED_IN_WRONG_PACKET_NUMBER_SPACE,
 };
 
+// Used to return the result of processing a received NEW_CID frame.
+enum class NewConnectionIdResult : uint8_t {
+  kOk,
+  kDuplicateFrame,  // Not an error.
+  kProtocolViolation,
+};
+
 // Indicates the fate of a serialized packet in WritePacket().
 enum SerializedPacketFate : uint8_t {
   DISCARD,         // Discard the packet.
@@ -884,12 +891,12 @@ enum QuicEcnCodepoint {
   // The NOT-ECT codepoint, indicating the packet sender is not using (or the
   // network has disabled) ECN.
   ECN_NOT_ECT = 0,
-  // The ECT(0) codepoint, indicating the packet sender is using classic ECN
-  // (RFC3168).
-  ECN_ECT0 = 1,
   // The ECT(1) codepoint, indicating the packet sender is using Low Latency,
   // Low Loss, Scalable Throughput (L4S) ECN (RFC9330).
-  ECN_ECT1 = 2,
+  ECN_ECT1 = 1,
+  // The ECT(0) codepoint, indicating the packet sender is using classic ECN
+  // (RFC3168).
+  ECN_ECT0 = 2,
   // The CE ("Congestion Experienced") codepoint, indicating the packet sender
   // is using ECN, and a router is experiencing congestion.
   ECN_CE = 3,

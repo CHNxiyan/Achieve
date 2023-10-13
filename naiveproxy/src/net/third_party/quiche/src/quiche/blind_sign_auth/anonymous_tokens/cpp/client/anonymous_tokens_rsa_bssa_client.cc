@@ -56,11 +56,24 @@ absl::Status ValidityChecksForClientCreation(
   } else if (public_key.salt_length() <= 0) {
     return absl::InvalidArgumentError(
         "Non-positive salt length is not allowed.");
-  } else if (public_key.message_mask_type() == AT_MESSAGE_MASK_TYPE_UNDEFINED ||
-             public_key.message_mask_type() == AT_MESSAGE_MASK_XOR) {
-    return absl::InvalidArgumentError("Message mask type must be defined.");
-  } else if (public_key.message_mask_size() <= 0) {
-    return absl::InvalidArgumentError("Message mask size must be positive.");
+  }
+
+  switch (public_key.message_mask_type()) {
+    case AT_MESSAGE_MASK_CONCAT:
+      if (public_key.message_mask_size() < 32) {
+        return absl::InvalidArgumentError(
+            "Message mask concat type must have a size of at least 32 bytes.");
+      }
+      break;
+    case AT_MESSAGE_MASK_NO_MASK:
+      if (public_key.message_mask_size() != 0) {
+        return absl::InvalidArgumentError(
+            "Message mask no mask type must be set to size 0 bytes.");
+      }
+      break;
+    default:
+      return absl::InvalidArgumentError(
+          "Message mask type must be defined and supported.");
   }
 
   RSAPublicKey rsa_public_key;
@@ -137,6 +150,7 @@ AnonymousTokensRsaBssaClient::CreateRequest(
       // Empty public metadata is a valid value.
       public_metadata = input.public_metadata();
     }
+    const bool use_rsa_public_exponent = false;
     // Owned by BoringSSL.
     ANON_TOKENS_ASSIGN_OR_RETURN(
         const EVP_MD* sig_hash,
@@ -150,7 +164,7 @@ AnonymousTokensRsaBssaClient::CreateRequest(
         auto rsa_bssa_blinder,
         RsaBlinder::New(rsa_public_key_proto.n(), rsa_public_key_proto.e(),
                         sig_hash, mgf1_hash, public_key_.salt_length(),
-                        /*use_rsa_public_exponent=*/true, public_metadata));
+                        use_rsa_public_exponent, public_metadata));
     ANON_TOKENS_ASSIGN_OR_RETURN(const std::string blinded_message,
                                  rsa_bssa_blinder->Blind(masked_message));
 
@@ -168,6 +182,7 @@ AnonymousTokensRsaBssaClient::CreateRequest(
     blinded_token->set_key_version(public_key_.key_version());
     blinded_token->set_serialized_token(blinded_message);
     blinded_token->set_public_metadata(input.public_metadata());
+    blinded_token->set_do_not_use_rsa_public_exponent(!use_rsa_public_exponent);
     blinding_info_map_[blinded_message] = std::move(blinding_info);
   }
 
@@ -235,6 +250,13 @@ AnonymousTokensRsaBssaClient::ProcessResponse(
         anonymous_token.public_metadata()) {
       return absl::InvalidArgumentError(
           "Response public metadata does not match input.");
+    } else if (public_key_.public_metadata_support() &&
+               !anonymous_token.do_not_use_rsa_public_exponent()) {
+      // Bool do_not_use_rsa_public_exponent does not matter for the non-public
+      // metadata version.
+      return absl::InvalidArgumentError(
+          "Setting do_not_use_rsa_public_exponent to false is no longer "
+          "supported.");
     }
 
     // Unblind the blinded anonymous token to obtain the final anonymous token

@@ -74,7 +74,7 @@
 #include "url/url_util.h"
 
 #if BUILDFLAG(IS_APPLE)
-#include "base/allocator/early_zone_registration_mac.h"
+#include "base/allocator/early_zone_registration_apple.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
 #endif
 

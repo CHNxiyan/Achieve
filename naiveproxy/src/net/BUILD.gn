@@ -371,6 +371,8 @@ component("net") {
     "cert/pki/extended_key_usage.h",
     "cert/pki/general_names.cc",
     "cert/pki/general_names.h",
+    "cert/pki/ip_util.cc",
+    "cert/pki/ip_util.h",
     "cert/pki/name_constraints.cc",
     "cert/pki/name_constraints.h",
     "cert/pki/ocsp.cc",
@@ -1829,6 +1831,6 @@ executable("naive") {
   ]
 
   if (is_apple) {
-    deps += [ "//base/allocator:early_zone_registration_mac" ]
+    deps += [ "//base/allocator:early_zone_registration_apple" ]
   }
 }

@@ -124,8 +124,8 @@ void QuicReceivedPacketManager::RecordPacketReceived(
     }
   }
 
-  if (GetQuicRestartFlag(quic_receive_ecn2) && ecn != ECN_NOT_ECT) {
-    QUIC_RESTART_FLAG_COUNT_N(quic_receive_ecn2, 1, 2);
+  if (GetQuicRestartFlag(quic_receive_ecn3) && ecn != ECN_NOT_ECT) {
+    QUIC_RESTART_FLAG_COUNT_N(quic_receive_ecn3, 1, 2);
     if (!ack_frame_.ecn_counters.has_value()) {
       ack_frame_.ecn_counters = QuicEcnCounts();
     }
@@ -154,14 +154,8 @@ void QuicReceivedPacketManager::RecordPacketReceived(
 }
 
 void QuicReceivedPacketManager::MaybeTrimAckRanges() {
-  if (!trim_ack_ranges_early_) {
-    return;
-  }
-
-  QUIC_RELOADABLE_FLAG_COUNT_N(quic_rpm_trim_ack_ranges_early, 1, 2);
   while (max_ack_ranges_ > 0 &&
          ack_frame_.packets.NumIntervals() > max_ack_ranges_) {
-    QUIC_RELOADABLE_FLAG_COUNT_N(quic_rpm_trim_ack_ranges_early, 2, 2);
     ack_frame_.packets.RemoveSmallestInterval();
   }
 }

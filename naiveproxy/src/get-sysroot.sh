@@ -17,14 +17,21 @@ case "$ARCH" in
       CCACHE=ccache
     fi
     WITH_CLANG=Linux_x64
+    # See build/config/compiler/pgo/BUILD.gn
     WITH_PGO=linux
     WITH_GN=linux
     if [ "$OPENWRT_FLAGS" ]; then
       eval "$OPENWRT_FLAGS"
       WITH_SYSROOT="out/sysroot-build/openwrt/$release/$arch"
     elif [ "$target_os" = android ]; then
-      WITH_PGO=
-      USE_AFDO=y
+      case "$target_cpu" in
+        arm64) WITH_PGO=android-arm64;;
+        *) WITH_PGO=android-arm32;;
+      esac
+      # Continue to use mac-arm profile while investigating Android results.
+      # TODO(crbug.com/4828524, crbug.com/1308749): Remove the following.
+      WITH_PGO=mac-arm
+      USE_AFDO=
       USE_ANDROID_NDK=y
       WITH_SYSROOT=
       case "$target_cpu" in
@@ -58,6 +65,7 @@ case "$ARCH" in
     USE_SCCACHE=y
     WITH_GN=windows
     case "$target_cpu" in
+      arm64) WITH_PGO=win-arm64;;
       x64) WITH_PGO=win64;;
       *) WITH_PGO=win32;;
     esac

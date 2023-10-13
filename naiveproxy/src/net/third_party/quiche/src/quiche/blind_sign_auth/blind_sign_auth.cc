@@ -10,11 +10,6 @@
 #include <utility>
 #include <vector>
 
-#include "quiche/blind_sign_auth/proto/auth_and_sign.pb.h"
-#include "quiche/blind_sign_auth/proto/get_initial_data.pb.h"
-#include "quiche/blind_sign_auth/proto/key_services.pb.h"
-#include "quiche/blind_sign_auth/proto/public_metadata.pb.h"
-#include "quiche/blind_sign_auth/proto/spend_token_data.pb.h"
 #include "absl/functional/bind_front.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -22,7 +17,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/types/span.h"
 #include "quiche/blind_sign_auth/anonymous_tokens/cpp/shared/proto_utils.h"
-#include "quiche/blind_sign_auth/anonymous_tokens/proto/anonymous_tokens.pb.h"
+#include "quiche/blind_sign_auth/blind_sign_auth_protos.h"
 #include "quiche/blind_sign_auth/blind_sign_http_response.h"
 #include "quiche/common/platform/api/quiche_logging.h"
 #include "quiche/common/quiche_endian.h"
@@ -48,13 +43,12 @@ void BlindSignAuth::GetTokens(std::string oauth_token, int num_tokens,
       privacy::ppn::GetInitialDataRequest_LocationGranularity_CITY_GEOS);
 
   // Call GetInitialData on the HttpFetcher.
-  std::string path_and_query = "/v1/getInitialData";
   std::string body = request.SerializeAsString();
   BlindSignHttpCallback initial_data_callback =
       absl::bind_front(&BlindSignAuth::GetInitialDataCallback, this,
                        oauth_token, num_tokens, std::move(callback));
-  http_fetcher_->DoRequest(path_and_query, oauth_token, body,
-                           std::move(initial_data_callback));
+  http_fetcher_->DoRequest(BlindSignHttpRequestType::kGetInitialData,
+                           oauth_token, body, std::move(initial_data_callback));
 }
 
 void BlindSignAuth::GetInitialDataCallback(
@@ -158,6 +152,8 @@ void BlindSignAuth::GetInitialDataCallback(
     sign_request.add_blinded_token(absl::Base64Escape(
         at_sign_request->blinded_tokens().at(i).serialized_token()));
   }
+  // TODO(b/295924807): deprecate this option after AT server defaults to it
+  sign_request.set_do_not_use_rsa_public_exponent(true);
 
   privacy::ppn::PublicMetadataInfo public_metadata_info =
       initial_data_response.public_metadata_info();
@@ -165,8 +161,8 @@ void BlindSignAuth::GetInitialDataCallback(
       &BlindSignAuth::AuthAndSignCallback, this, public_metadata_info,
       public_metadata_expiry_time.value(), *at_sign_request,
       *std::move(bssa_client), std::move(callback));
-  http_fetcher_->DoRequest("/v1/authWithHeaderCreds", oauth_token.data(),
-                           sign_request.SerializeAsString(),
+  http_fetcher_->DoRequest(BlindSignHttpRequestType::kAuthAndSign,
+                           oauth_token.data(), sign_request.SerializeAsString(),
                            std::move(auth_and_sign_callback));
 }
 
@@ -237,6 +233,7 @@ void BlindSignAuth::AuthAndSignCallback(
     *anon_token_proto.mutable_serialized_blinded_message() =
         at_sign_request.blinded_tokens(i).serialized_token();
     *anon_token_proto.mutable_serialized_token() = blinded_token;
+    anon_token_proto.set_do_not_use_rsa_public_exponent(true);
     at_sign_response.add_anonymous_tokens()->Swap(&anon_token_proto);
   }
 
