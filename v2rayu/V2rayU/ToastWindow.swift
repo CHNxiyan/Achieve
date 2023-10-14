@@ -8,6 +8,27 @@
 
 import Cocoa
 
+var toastWindow =  ToastWindowController()
+
+func makeToast(message: String, displayDuration: Double? = 3) {
+    print("makeToast", message)
+    toastWindow.close()
+    toastWindow = ToastWindowController()
+    toastWindow.message = message
+    toastWindow.showWindow(Any.self)
+    toastWindow.fadeInHud(displayDuration)
+
+    NSApp.activate(ignoringOtherApps: true)
+}
+
+func alertDialog(title: String, message: String) -> Bool {
+    let myPopup = NSAlert()
+    myPopup.messageText = title
+    myPopup.informativeText = message
+    myPopup.alertStyle = .warning
+    return myPopup.runModal() == NSApplication.ModalResponse.alertFirstButtonReturn
+}
+
 class ToastWindowController: NSWindowController {
 
     override var windowNibName: String? {

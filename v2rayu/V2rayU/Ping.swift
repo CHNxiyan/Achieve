@@ -16,7 +16,7 @@ var fastV2rayName = ""
 var fastV2raySpeed = 5
 var ping = PingSpeed()
 let second: Double = 1000000
-let pingURL = URL(string: "http://www.google.com/generate_204")!
+let pingURL = URL(string: "http://www.gstatic.com/generate_204")!
 
 class PingSpeed: NSObject {
     var unpingServers: Dictionary = [String: Bool]()
@@ -29,13 +29,18 @@ class PingSpeed: NSObject {
             NSLog("ping inPing")
             return
         }
-
+        // make sure core file
+        V2rayLaunch.checkV2rayCore()
+        // in ping
+        inPing = true
+        
         killAllPing()
 
         fastV2rayName = ""
         unpingServers = [String: Bool]()
         let itemList = V2rayServer.list()
         if itemList.count == 0 {
+            inPing = false
             return
         }
         let langStr = Locale.current.languageCode
@@ -46,9 +51,7 @@ class PingSpeed: NSObject {
             pingTip = "Ping Speed - 测试中"
         }
         menuController.setStatusMenuTip(pingTip: pingTip)
-        // in ping
-        inPing = true
-        let pingQueue = DispatchQueue(label: "pingQueue", attributes: .concurrent)
+        let pingQueue = DispatchQueue(label: "pingQueue", qos: .background, attributes: .concurrent)
         for item in itemList {
             unpingServers[item.name] = true
             pingQueue.async {
@@ -318,7 +321,7 @@ class PingCurrent: NSObject, URLSessionDataDelegate {
                 // stop first
                 V2rayLaunch.Stop()
                 // start
-                menuController.startV2rayCore()
+                V2rayLaunch.startV2rayCore()
                 // reload menu
                 menuController.showServers()
             }

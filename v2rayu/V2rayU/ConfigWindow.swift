@@ -11,6 +11,25 @@ import Alamofire
 
 var v2rayConfig: V2rayConfig = V2rayConfig()
 
+var configWindow = ConfigWindowController()
+
+func OpenConfigWindow(){
+        if configWindow != nil {
+            // close before
+            
+        } else {
+            // renew
+            configWindow = ConfigWindowController()
+        }
+
+        _ = showDock(state: true)
+        // show window
+        configWindow.showWindow(nil)
+        configWindow.window?.makeKeyAndOrderFront(configWindow.self)
+        // bring to front
+        NSApp.activate(ignoringOtherApps: true)
+}
+
 class ConfigWindowController: NSWindowController, NSWindowDelegate, NSTabViewDelegate {
 
     override var windowNibName: String? {
@@ -178,6 +197,10 @@ class ConfigWindowController: NSWindowController, NSWindowDelegate, NSTabViewDel
             let idx = self.serversTableView.selectedRow
             // remove
             V2rayServer.remove(idx: idx)
+
+            // reload
+            V2rayServer.loadConfig()
+            menuController.showServers()
 
             // selected prev row
             let cnt: Int = V2rayServer.count()
@@ -571,9 +594,9 @@ class ConfigWindowController: NSWindowController, NSWindowDelegate, NSTabViewDel
             let v2rayItemList = V2rayServer.list()
             if curName == v2rayItemList[self.serversTableView.selectedRow].name {
                 if ok {
-                    menuController.startV2rayCore()
+                    V2rayLaunch.startV2rayCore()
                 } else {
-                    menuController.stopV2rayCore()
+                    V2rayLaunch.stopV2rayCore()
                 }
             }
         }
@@ -813,16 +836,16 @@ class ConfigWindowController: NSWindowController, NSWindowDelegate, NSTabViewDel
     }
 
     @IBAction func openLogs(_ sender: NSButton) {
-        V2rayLaunch.OpenLogs()
+        OpenLogs()
     }
 
     @IBAction func clearLogs(_ sender: NSButton) {
-        V2rayLaunch.ClearLogs()
+        ClearLogs()
     }
 
     @IBAction func cancel(_ sender: NSButton) {
         // hide dock icon and close all opened windows
-        _ = menuController.showDock(state: false)
+        _ = showDock(state: false)
     }
 
     @IBAction func goAdvanceSetting(_ sender: Any) {

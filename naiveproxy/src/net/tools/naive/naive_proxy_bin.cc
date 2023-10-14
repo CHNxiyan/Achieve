@@ -75,7 +75,7 @@
 
 #if BUILDFLAG(IS_APPLE)
 #include "base/allocator/early_zone_registration_apple.h"
-#include "base/mac/scoped_nsautorelease_pool.h"
+#include "base/apple/scoped_nsautorelease_pool.h"
 #endif
 
 namespace {
@@ -536,8 +536,8 @@ int main(int argc, char* argv[]) {
 #endif
 
   // content/app/content_main.cc: RunContentProcess()
-#if BUILDFLAG(IS_MAC)
-  base::mac::ScopedNSAutoreleasePool pool;
+#if BUILDFLAG(IS_APPLE)
+  base::apple::ScopedNSAutoreleasePool pool;
 #endif
 
   // content/app/content_main.cc: RunContentProcess()
