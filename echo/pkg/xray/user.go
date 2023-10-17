@@ -47,6 +47,14 @@ type SyncTrafficReq struct {
 	DownloadBandwidth int64          `json:"download_bandwidth"`
 }
 
+func (s *SyncTrafficReq) GetTotalTraffic() int64 {
+	var total int64
+	for _, u := range s.Data {
+		total += u.UploadTraffic + u.DownloadTraffic
+	}
+	return total
+}
+
 type SyncUserConfigsResp struct {
 	Users []*User `json:"users"`
 }
@@ -197,11 +205,12 @@ func (up *UserPool) syncTrafficToServer(ctx context.Context, endpoint, tag strin
 			}
 			continue
 		}
+		// Note v2ray 只会统计 inbound 的流量，所以这里乘以2 以补偿 outbound 的流量
 		switch trafficType {
 		case "uplink":
-			user.UploadTraffic = stat.Value
+			user.UploadTraffic = stat.Value * 2
 		case "downlink":
-			user.DownloadTraffic = stat.Value
+			user.DownloadTraffic = stat.Value * 2
 		}
 	}
 
@@ -217,7 +226,8 @@ func (up *UserPool) syncTrafficToServer(ctx context.Context, endpoint, tag strin
 	req := &SyncTrafficReq{Data: tfs}
 	if up.br != nil {
 		// record bandwidth
-		if err := up.br.RecordOnce(ctx); err != nil {
+		uploadIncr, downloadIncr, err := up.br.RecordOnce(ctx)
+		if err != nil {
 			return err
 		}
 
@@ -225,8 +235,13 @@ func (up *UserPool) syncTrafficToServer(ctx context.Context, endpoint, tag strin
 		req.UploadBandwidth = int64(ub)
 		db := up.br.GetDownloadBandwidth()
 		req.DownloadBandwidth = int64(db)
-		l.Debug("Upload Bandwidth :", PrettyByteSize(ub),
-			"Download Bandwidth :", PrettyByteSize(db))
+		l.Debug(
+			"Upload Bandwidth :", PrettyByteSize(ub),
+			"Download Bandwidth :", PrettyByteSize(db),
+			"Total Bandwidth :", PrettyByteSize(ub+db),
+			"Total Increment By BR", PrettyByteSize(uploadIncr+downloadIncr),
+			"Total Increment By Xray :", PrettyByteSize(float64(req.GetTotalTraffic())),
+		)
 	}
 	if err := postJson(up.httpClient, endpoint, req); err != nil {
 		return err
