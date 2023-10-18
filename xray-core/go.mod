@@ -10,7 +10,7 @@ require (
 	github.com/miekg/dns v1.1.56
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pires/go-proxyproto v0.7.0
-	github.com/quic-go/quic-go v0.39.0
+	github.com/quic-go/quic-go v0.39.1
 	github.com/refraction-networking/utls v1.5.4
 	github.com/sagernet/sing v0.2.14
 	github.com/sagernet/sing-shadowsocks v0.2.5
@@ -24,7 +24,7 @@ require (
 	golang.org/x/net v0.17.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.13.0
-	google.golang.org/grpc v1.58.3
+	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gvisor.dev/gvisor v0.0.0-20230822212503-5bf4e5f98744
 	h12.io/socks v1.0.3
