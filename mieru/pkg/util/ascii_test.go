@@ -13,8 +13,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-package version
+package util
 
-const (
-	AppVersion = "2.1.0"
+import (
+	crand "crypto/rand"
+	"testing"
 )
+
+func TestToPrintableChar(t *testing.T) {
+	b := make([]byte, 1024)
+	for {
+		if _, err := crand.Read(b); err == nil {
+			break
+		}
+	}
+	ToPrintableChar(b, 0, 1024)
+	for i := 0; i < 1024; i++ {
+		if b[i] < PrintableCharSub || b[i] > PrintableCharSup {
+			t.Fatalf("Found non printable character")
+		}
+	}
+}
