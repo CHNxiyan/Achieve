@@ -437,7 +437,7 @@ It will create a Tun interface with address `10.255.0.1` and netmask `255.255.25
 Download `wintun.dll` from [Wintun](https://www.wintun.net/), and place it in the folder with shadowsocks' runnable binaries, or in the system PATH.
 
 ```powershell
-sslocal --protocol tun -s "[::1]:8388" -m "aes-256-gcm" -k "hello-kitty" --outbound-bind-interface "Loopback" --tun-interface-name "shadowsocks"
+sslocal --protocol tun -s "[::1]:8388" -m "aes-256-gcm" -k "hello-kitty" --outbound-bind-interface "Ethernet 0" --tun-interface-name "shadowsocks"
 ```
 
 ### Local client for Windows Service
@@ -554,6 +554,9 @@ Example configuration:
             "socks5_auth_config_path": "/path/to/auth.json",
             // OPTIONAL. Instance specific ACL
             "acl": "/path/to/acl/file.acl",
+            // OPTIONAL. macOS launchd activate socket
+            "launchd_tcp_socket_name": "TCPListener",
+            "launchd_udp_socket_name": "UDPListener"
         },
         {
             // SOCKS5, SOCKS4/4a local server
@@ -567,7 +570,10 @@ Example configuration:
             // - TCP is enabled, then SOCKS5's UDP Association command will return this address
             // - UDP is enabled, then SOCKS5's UDP server will listen to this address.
             "local_udp_address": "127.0.0.1",
-            "local_udp_port": 2081
+            "local_udp_port": 2081,
+            // OPTIONAL. macOS launchd activate socket
+            "launchd_tcp_socket_name": "TCPListener",
+            "launchd_udp_socket_name": "UDPListener"
         },
         {
             // Tunnel local server (feature = "local-tunnel")
@@ -580,14 +586,19 @@ Example configuration:
             "forward_address": "8.8.8.8",
             "forward_port": 53,
             // OPTIONAL. Customizing whether to start TCP and UDP tunnel
-            "mode": "tcp_only"
+            "mode": "tcp_only",
+            // OPTIONAL. macOS launchd activate socket
+            "launchd_tcp_socket_name": "TCPListener",
+            "launchd_udp_socket_name": "UDPListener"
         },
         {
             // HTTP local server (feature = "local-http")
             "protocol": "http",
             // Listen address
             "local_address": "127.0.0.1",
-            "local_port": 3128
+            "local_port": 3128,
+            // OPTIONAL. macOS launchd activate socket
+            "launchd_tcp_socket_name": "TCPListener"
         },
         {
             // DNS local server (feature = "local-dns")
@@ -607,7 +618,10 @@ Example configuration:
             // OPTIONAL. Remote DNS's port, 53 by default
             "remote_dns_port": 53,
             // OPTIONAL. dns client cache size for fetching dns queries.
-            "client_cache_size": 5
+            "client_cache_size": 5,
+            // OPTIONAL. macOS launchd activate socket
+            "launchd_tcp_socket_name": "TCPListener",
+            "launchd_udp_socket_name": "UDPListener"
         },
         {
             // Tun local server (feature = "local-tun")
@@ -965,7 +979,7 @@ It supports the following features:
 - [x] Improved logging format (waiting for the new official log crate)
 - [x] Support more ciphers without depending on `libcrypto` (waiting for an acceptable Rust crypto lib implementation)
 - [x] Windows support.
-- [x] Build with stable `rustc` <del>(blocking by `crypto2`)</del>.
+- [x] Build with stable `rustc` ~~(blocking by `crypto2`)~~.
 - [x] Support HTTP Proxy protocol
 - [x] AEAD ciphers. (proposed in [SIP004](https://github.com/shadowsocks/shadowsocks-org/issues/30), still under discussion)
 - [x] Choose server based on delay #152
