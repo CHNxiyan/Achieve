@@ -489,16 +489,16 @@ func (c *Config) Override(o *Config, fn string) {
 
 	// update the Inbound in slice if the only one in overide config has same tag
 	if len(o.InboundConfigs) > 0 {
-		if len(c.InboundConfigs) > 0 && len(o.InboundConfigs) == 1 {
-			if idx := c.findInboundTag(o.InboundConfigs[0].Tag); idx > -1 {
-				c.InboundConfigs[idx] = o.InboundConfigs[0]
-				ctllog.Println("[", fn, "] updated inbound with tag: ", o.InboundConfigs[0].Tag)
+		for i := range o.InboundConfigs {
+			if idx := c.findInboundTag(o.InboundConfigs[i].Tag); idx > -1 {
+				c.InboundConfigs[idx] = o.InboundConfigs[i]
+				newError("[", fn, "] updated inbound with tag: ", o.InboundConfigs[i].Tag).AtInfo().WriteToLog()
+
 			} else {
-				c.InboundConfigs = append(c.InboundConfigs, o.InboundConfigs[0])
-				ctllog.Println("[", fn, "] appended inbound with tag: ", o.InboundConfigs[0].Tag)
+				c.InboundConfigs = append(c.InboundConfigs, o.InboundConfigs[i])
+				newError("[", fn, "] appended inbound with tag: ", o.InboundConfigs[i].Tag).AtInfo().WriteToLog()
 			}
-		} else {
-			c.InboundConfigs = o.InboundConfigs
+
 		}
 	}
 

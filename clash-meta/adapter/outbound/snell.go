@@ -136,7 +136,7 @@ func (s *Snell) ListenPacketWithDialer(ctx context.Context, dialer C.Dialer, met
 
 // SupportWithDialer implements C.ProxyAdapter
 func (s *Snell) SupportWithDialer() C.NetWork {
-	return C.ANY
+	return C.ALLNet
 }
 
 // SupportUOT implements C.ProxyAdapter
