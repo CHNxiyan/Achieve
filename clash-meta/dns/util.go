@@ -107,16 +107,7 @@ func transform(servers []NameServer, resolver *Resolver) []dnsClient {
 			ret = append(ret, newDHCPClient(s.Addr))
 			continue
 		case "system":
-			clients, err := loadSystemResolver()
-			if err != nil {
-				log.Errorln("[DNS:system] load system resolver failed: %s", err.Error())
-				continue
-			}
-			if len(clients) == 0 {
-				log.Errorln("[DNS:system] no nameserver found in system")
-				continue
-			}
-			ret = append(ret, clients...)
+			ret = append(ret, newSystemClient())
 			continue
 		case "rcode":
 			ret = append(ret, newRCodeClient(s.Addr))
@@ -299,14 +290,17 @@ func listenPacket(ctx context.Context, proxyAdapter C.ProxyAdapter, proxyName st
 	return proxyAdapter.ListenPacketContext(ctx, metadata, opts...)
 }
 
+var errIPNotFound = errors.New("couldn't find ip")
+
 func batchExchange(ctx context.Context, clients []dnsClient, m *D.Msg) (msg *D.Msg, cache bool, err error) {
 	cache = true
 	fast, ctx := picker.WithTimeout[*D.Msg](ctx, resolver.DefaultDNSTimeout)
 	defer fast.Close()
 	domain := msgToDomain(m)
+	var noIpMsg *D.Msg
 	for _, client := range clients {
 		if _, isRCodeClient := client.(rcodeClient); isRCodeClient {
-			msg, err = client.Exchange(m)
+			msg, err = client.ExchangeContext(ctx, m)
 			return msg, false, err
 		}
 		client := client // shadow define client to ensure the value captured by the closure will not be changed in the next loop
@@ -320,13 +314,31 @@ func batchExchange(ctx context.Context, clients []dnsClient, m *D.Msg) (msg *D.M
 				// so we would ignore RCode errors from RCode clients.
 				return nil, errors.New("server failure: " + D.RcodeToString[m.Rcode])
 			}
-			log.Debugln("[DNS] %s --> %s, from %s", domain, msgToIP(m), client.Address())
+			if ips := msgToIP(m); len(m.Question) > 0 {
+				qType := m.Question[0].Qtype
+				log.Debugln("[DNS] %s --> %s %s from %s", domain, ips, D.Type(qType), client.Address())
+				switch qType {
+				case D.TypeAAAA:
+					if len(ips) == 0 {
+						noIpMsg = m
+						return nil, errIPNotFound
+					}
+				case D.TypeA:
+					if len(ips) == 0 {
+						noIpMsg = m
+						return nil, errIPNotFound
+					}
+				}
+			}
 			return m, nil
 		})
 	}
 
 	msg = fast.Wait()
 	if msg == nil {
+		if noIpMsg != nil {
+			return noIpMsg, false, nil
+		}
 		err = errors.New("all DNS requests failed")
 		if fErr := fast.Error(); fErr != nil {
 			err = fmt.Errorf("%w, first error: %w", err, fErr)
