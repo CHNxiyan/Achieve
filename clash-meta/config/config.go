@@ -20,7 +20,6 @@ import (
 	N "github.com/Dreamacro/clash/common/net"
 	"github.com/Dreamacro/clash/common/utils"
 	"github.com/Dreamacro/clash/component/auth"
-	"github.com/Dreamacro/clash/component/dialer"
 	"github.com/Dreamacro/clash/component/fakeip"
 	"github.com/Dreamacro/clash/component/geodata"
 	"github.com/Dreamacro/clash/component/geodata/router"
@@ -123,7 +122,7 @@ type DNS struct {
 type FallbackFilter struct {
 	GeoIP     bool                    `yaml:"geoip"`
 	GeoIPCode string                  `yaml:"geoip-code"`
-	IPCIDR    []*netip.Prefix         `yaml:"ipcidr"`
+	IPCIDR    []netip.Prefix          `yaml:"ipcidr"`
 	Domain    []string                `yaml:"domain"`
 	GeoSite   []*router.DomainMatcher `yaml:"geosite"`
 }
@@ -1048,7 +1047,6 @@ func parseNameServer(servers []string, preferH3 bool) ([]dns.NameServer, error) 
 				Net:       dnsNetType,
 				Addr:      addr,
 				ProxyName: proxyName,
-				Interface: dialer.DefaultInterface,
 				Params:    params,
 				PreferH3:  preferH3,
 			},
@@ -1150,15 +1148,15 @@ func parseNameServerPolicy(nsPolicy map[string]any, ruleProviders map[string]pro
 	return policy, nil
 }
 
-func parseFallbackIPCIDR(ips []string) ([]*netip.Prefix, error) {
-	var ipNets []*netip.Prefix
+func parseFallbackIPCIDR(ips []string) ([]netip.Prefix, error) {
+	var ipNets []netip.Prefix
 
 	for idx, ip := range ips {
 		ipnet, err := netip.ParsePrefix(ip)
 		if err != nil {
 			return nil, fmt.Errorf("DNS FallbackIP[%d] format error: %s", idx, err.Error())
 		}
-		ipNets = append(ipNets, &ipnet)
+		ipNets = append(ipNets, ipnet)
 	}
 
 	return ipNets, nil
@@ -1226,7 +1224,7 @@ func parseDNS(rawCfg *RawConfig, hosts *trie.DomainTrie[resolver.HostValue], rul
 		IPv6:         cfg.IPv6,
 		EnhancedMode: cfg.EnhancedMode,
 		FallbackFilter: FallbackFilter{
-			IPCIDR:  []*netip.Prefix{},
+			IPCIDR:  []netip.Prefix{},
 			GeoSite: []*router.DomainMatcher{},
 		},
 	}
@@ -1300,7 +1298,7 @@ func parseDNS(rawCfg *RawConfig, hosts *trie.DomainTrie[resolver.HostValue], rul
 		}
 
 		pool, err := fakeip.New(fakeip.Options{
-			IPNet:       &fakeIPRange,
+			IPNet:       fakeIPRange,
 			Size:        1000,
 			Host:        host,
 			Persistence: rawCfg.Profile.StoreFakeIP,
