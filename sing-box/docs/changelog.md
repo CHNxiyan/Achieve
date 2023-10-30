@@ -1,8 +1,37 @@
-#### 1.6.0-rc.3
+#### 1.7.0-alpha.2
 
+* Fix bugs introduced in 1.7.0-alpha.1
+
+#### 1.7.0-alpha.1
+
+* Add [exclude route support](/configuration/inbound/tun) for TUN inbound
+* Add `udp_disable_domain_unmapping` [inbound listen option](/configuration/shared/listen) **1**
 * Fixes and improvements
 
-#### 1.6.0-rc.2
+**1**:
+
+If enabled, for UDP proxy requests addressed to a domain,
+the original packet address will be sent in the response instead of the mapped domain.
+
+This option is used for compatibility with clients that
+do not support receiving UDP packets with domain addresses, such as Surge.
+
+#### 1.5.5
+
+* Fix IPv6 `auto_route` for Linux **1**
+* Add legacy builds for old Windows and macOS systems **2**
+* Fixes and improvements
+
+**1**:
+
+When `auto_route` is enabled and `strict_route` is disabled, the device can now be reached from external IPv6 addresses.
+
+**2**:
+
+Built using Go 1.20, the last version that will run on Windows 7, 8, Server 2008, Server 2012 and macOS 10.13 High Sierra, 10.14 Mojave.
+
+
+#### 1.6.0-rc.4
 
 * Fixes and improvements
 
