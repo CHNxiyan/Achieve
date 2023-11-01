@@ -116,6 +116,15 @@ fun parseV2Ray(link: String): StandardV2RayBean {
                     bean.path = it
                 }
             }
+
+            "httpupgrade" -> {
+                url.queryParameter("path")?.let {
+                    bean.path = it
+                }
+                url.queryParameter("host")?.let {
+                    bean.host = it
+                }
+            }
         }
     } else {
         // also vless format
@@ -212,6 +221,15 @@ fun StandardV2RayBean.parseDuckSoft(url: HttpUrl) {
 
         "grpc" -> {
             url.queryParameter("serviceName")?.let {
+                path = it
+            }
+        }
+
+        "httpupgrade" -> {
+            url.queryParameter("host")?.let {
+                host = it
+            }
+            url.queryParameter("path")?.let {
                 path = it
             }
         }
@@ -436,7 +454,7 @@ fun StandardV2RayBean.toUriVMessVLESSTrojan(isTrojan: Boolean): String {
 
     when (type) {
         "tcp" -> {}
-        "ws", "http" -> {
+        "ws", "http", "httpupgrade" -> {
             if (host.isNotBlank()) {
                 builder.addQueryParameter("host", host)
             }
@@ -562,6 +580,14 @@ fun buildSingBoxOutboundStreamSettings(bean: StandardV2RayBean): V2RayTransportO
             return V2RayTransportOptions_GRPCOptions().apply {
                 type = "grpc"
                 service_name = bean.path
+            }
+        }
+
+        "httpupgrade" -> {
+            return V2RayTransportOptions_HTTPUpgradeOptions().apply {
+                type = "httpupgrade"
+                host = bean.host
+                path = bean.path
             }
         }
     }
