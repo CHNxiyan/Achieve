@@ -1,7 +1,6 @@
 package vmess
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
@@ -56,6 +55,7 @@ type WebsocketConfig struct {
 	MaxEarlyData        int
 	EarlyDataHeaderName string
 	ClientFingerprint   string
+	V2rayHttpUpgrade    bool
 }
 
 // Read implements net.Conn.Read()
@@ -330,7 +330,7 @@ func streamWebsocketConn(ctx context.Context, conn net.Conn, c *WebsocketConfig,
 			if fingerprint, exists := tlsC.GetFingerprint(c.ClientFingerprint); exists {
 				utlsConn := tlsC.UClient(conn, c.TLSConfig, fingerprint)
 
-				if err := utlsConn.(*tlsC.UConn).BuildWebsocketHandshakeState(); err != nil {
+				if err := utlsConn.BuildWebsocketHandshakeState(); err != nil {
 					return nil, fmt.Errorf("parse url %s error: %w", c.Path, err)
 				}
 
@@ -351,6 +351,46 @@ func streamWebsocketConn(ctx context.Context, conn net.Conn, c *WebsocketConfig,
 		Host:     net.JoinHostPort(c.Host, c.Port),
 		Path:     u.Path,
 		RawQuery: u.RawQuery,
+	}
+
+	if c.V2rayHttpUpgrade {
+		if c.TLS {
+			if dialer.TLSClient != nil {
+				conn = dialer.TLSClient(conn, uri.Host)
+			} else {
+				conn = tls.Client(conn, dialer.TLSConfig)
+			}
+			if tlsConn, ok := conn.(interface {
+				HandshakeContext(ctx context.Context) error
+			}); ok {
+				if err = tlsConn.HandshakeContext(ctx); err != nil {
+					return nil, err
+				}
+			}
+		}
+		request := &http.Request{
+			Method: http.MethodGet,
+			URL:    &uri,
+			Header: c.Headers.Clone(),
+			Host:   c.Host,
+		}
+		request.Header.Set("Connection", "Upgrade")
+		request.Header.Set("Upgrade", "websocket")
+		err = request.Write(conn)
+		if err != nil {
+			return nil, err
+		}
+		bufferedConn := N.NewBufferedConn(conn)
+		response, err := http.ReadResponse(bufferedConn.Reader(), request)
+		if err != nil {
+			return nil, err
+		}
+		if response.StatusCode != 101 ||
+			!strings.EqualFold(response.Header.Get("Connection"), "upgrade") ||
+			!strings.EqualFold(response.Header.Get("Upgrade"), "websocket") {
+			return nil, fmt.Errorf("unexpected status: %s", response.Status)
+		}
+		return bufferedConn, nil
 	}
 
 	headers := http.Header{}
@@ -393,7 +433,11 @@ func streamWebsocketConn(ctx context.Context, conn net.Conn, c *WebsocketConfig,
 		return nil, fmt.Errorf("dial %s error: %w", uri.Host, err)
 	}
 
-	conn = newWebsocketConn(conn, reader, ws.StateClientSide)
+	// some bytes which could be written by the peer right after response and be caught by us during buffered read,
+	// so we need warp Conn with bio.Reader
+	conn = N.WarpConnWithBioReader(conn, reader)
+
+	conn = newWebsocketConn(conn, ws.StateClientSide)
 	// websocketConn can't correct handle ReadDeadline
 	// so call N.NewDeadlineConn to add a safe wrapper
 	return N.NewDeadlineConn(conn), nil
@@ -419,19 +463,13 @@ func StreamWebsocketConn(ctx context.Context, conn net.Conn, c *WebsocketConfig)
 	return streamWebsocketConn(ctx, conn, c, nil)
 }
 
-func newWebsocketConn(conn net.Conn, br *bufio.Reader, state ws.State) *websocketConn {
+func newWebsocketConn(conn net.Conn, state ws.State) *websocketConn {
 	controlHandler := wsutil.ControlFrameHandler(conn, state)
-	var reader io.Reader
-	if br != nil && br.Buffered() > 0 {
-		reader = br
-	} else {
-		reader = conn
-	}
 	return &websocketConn{
 		Conn:  conn,
 		state: state,
 		reader: &wsutil.Reader{
-			Source:          reader,
+			Source:          conn,
 			State:           state,
 			SkipHeaderCheck: true,
 			CheckUTF8:       false,
@@ -463,7 +501,11 @@ func StreamUpgradedWebsocketConn(w http.ResponseWriter, r *http.Request) (net.Co
 	if err != nil {
 		return nil, err
 	}
-	conn := newWebsocketConn(wsConn, rw.Reader, ws.StateServerSide)
+
+	// gobwas/ws will flush rw.Writer, so we only need warp rw.Reader
+	wsConn = N.WarpConnWithBioReader(wsConn, rw.Reader)
+
+	conn := newWebsocketConn(wsConn, ws.StateServerSide)
 	if edBuf := decodeXray0rtt(r.Header); len(edBuf) > 0 {
 		return N.NewDeadlineConn(&websocketWithReaderConn{conn, io.MultiReader(bytes.NewReader(edBuf), conn)}), nil
 	}
